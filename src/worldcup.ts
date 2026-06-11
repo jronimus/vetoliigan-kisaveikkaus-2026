@@ -32,9 +32,12 @@ export type WorldCupState = {
   teams: ApiTeam[];
   lastUpdated?: Date;
   error?: string;
+  source?: "direct" | "proxy" | "fallback" | "cache";
 };
 
 const API = import.meta.env.VITE_WORLDCUP_API_BASE || "https://worldcup26.ir/get";
+const CACHE_KEY = "vetoliiga.worldcup-cache";
+const STATIC_DATA = "/live-data";
 
 export const FALLBACK_TEAMS: ApiTeam[] = [
   { id: "1", name_en: "Mexico", flag: "https://flagcdn.com/w80/mx.png", fifa_code: "MEX", groups: "A" },
@@ -48,16 +51,16 @@ export const FALLBACK_GAMES: ApiGame[] = [
     id: "1",
     home_team_id: "1",
     away_team_id: "2",
-    home_score: "1",
+    home_score: "2",
     away_score: "0",
-    home_scorers: "{J. Quinones 9'}",
+    home_scorers: "{J. Quinones 9', R. Jimenez 67'}",
     away_scorers: "null",
     group: "A",
     matchday: "1",
     local_date: "06/11/2026 13:00",
     stadium_id: "1",
-    finished: "FALSE",
-    time_elapsed: "live",
+    finished: "TRUE",
+    time_elapsed: "finished",
     type: "group",
     home_team_name_en: "Mexico",
     away_team_name_en: "South Africa",
@@ -82,23 +85,77 @@ export const FALLBACK_GAMES: ApiGame[] = [
   },
 ];
 
-export async function fetchWorldCup(): Promise<WorldCupState> {
-  const [gamesRes, teamsRes] = await Promise.all([
-    fetch(`${API}/games`, { cache: "no-store" }),
-    fetch(`${API}/teams`, { cache: "force-cache" }),
-  ]);
+function cleanJinaPayload(raw: string) {
+  const marker = "Markdown Content:";
+  const start = raw.indexOf(marker);
+  if (start < 0) return raw.trim();
+  return raw.slice(start + marker.length).trim();
+}
 
-  if (!gamesRes.ok || !teamsRes.ok) {
-    throw new Error("MM-rajapinta ei vastannut odotetusti.");
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, init);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return (await response.json()) as T;
+}
+
+async function fetchStatic<T>(path: string): Promise<T> {
+  return fetchJson<T>(`${STATIC_DATA}/${path}`, { cache: "no-store" });
+}
+
+async function fetchViaJina<T>(url: string): Promise<T> {
+  const response = await fetch(`https://r.jina.ai/http://${url.replace(/^https?:\/\//, "")}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Jina HTTP ${response.status}`);
+  const text = await response.text();
+  return JSON.parse(cleanJinaPayload(text)) as T;
+}
+
+function buildState(games: ApiGame[], teams: ApiTeam[], source: WorldCupState["source"]) {
+  return { games, teams, lastUpdated: new Date(), source };
+}
+
+export function loadCachedWorldCup() {
+  const saved = localStorage.getItem(CACHE_KEY);
+  if (!saved) return undefined;
+  try {
+    const parsed = JSON.parse(saved) as WorldCupState;
+    return { ...parsed, lastUpdated: parsed.lastUpdated ? new Date(parsed.lastUpdated) : undefined, source: "cache" as const };
+  } catch {
+    return undefined;
+  }
+}
+
+export function saveCachedWorldCup(state: WorldCupState) {
+  localStorage.setItem(CACHE_KEY, JSON.stringify(state));
+}
+
+export async function fetchWorldCup(): Promise<WorldCupState> {
+  try {
+    const [gamesJson, teamsJson] = await Promise.all([
+      fetchStatic<{ games: ApiGame[] }>("games.json"),
+      fetchStatic<{ teams: ApiTeam[] }>("teams.json"),
+    ]);
+    return buildState(gamesJson.games ?? [], teamsJson.teams ?? [], "direct");
+  } catch {
+    // fall through to live endpoints
   }
 
-  const gamesJson = (await gamesRes.json()) as { games: ApiGame[] };
-  const teamsJson = (await teamsRes.json()) as { teams: ApiTeam[] };
-  return { games: gamesJson.games ?? [], teams: teamsJson.teams ?? [], lastUpdated: new Date() };
+  try {
+    const [gamesJson, teamsJson] = await Promise.all([
+      fetchJson<{ games: ApiGame[] }>(`${API}/games`, { cache: "no-store" }),
+      fetchJson<{ teams: ApiTeam[] }>(`${API}/teams`, { cache: "force-cache" }),
+    ]);
+    return buildState(gamesJson.games ?? [], teamsJson.teams ?? [], "direct");
+  } catch {
+    const [gamesJson, teamsJson] = await Promise.all([
+      fetchViaJina<{ games: ApiGame[] }>("https://worldcup26.ir/get/games"),
+      fetchViaJina<{ teams: ApiTeam[] }>("https://worldcup26.ir/get/teams"),
+    ]);
+    return buildState(gamesJson.games ?? [], teamsJson.teams ?? [], "proxy");
+  }
 }
 
 export function isFinished(game: ApiGame) {
-  return String(game.finished).toLowerCase() === "true";
+  return String(game.finished).toLowerCase() === "true" || String(game.time_elapsed).toLowerCase() === "finished";
 }
 
 export function isLive(game: ApiGame) {

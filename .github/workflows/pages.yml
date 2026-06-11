@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
 
 permissions:
   contents: read
@@ -29,6 +31,9 @@ jobs:
 
       - name: Install
         run: npm install
+
+      - name: Refresh World Cup data
+        run: npm run fetch-data
 
       - name: Build
         run: npm run build
