@@ -106,10 +106,16 @@ h1 {
   line-height: 1.45;
 }
 
+.nav-toolbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
 .primary-nav {
   display: flex;
   gap: 8px;
-  margin-bottom: 14px;
 }
 
 .nav-link {
@@ -297,11 +303,31 @@ h1 {
   border: 1px solid var(--line);
 }
 
-.section-stack {
+.section-stack-rows {
+  display: grid;
+  gap: 18px;
+  width: 100%;
+}
+
+.days-row {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
   align-items: flex-start;
+  width: 100%;
+}
+
+.older-games-section {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+.older-heading {
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 32px;
+  margin-bottom: 14px;
+  text-transform: uppercase;
 }
 
 .day-section.compact-day {
@@ -318,7 +344,6 @@ h1 {
 
 .match-grid.compact-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 250px);
   gap: 12px;
   width: 100%;
 }
@@ -435,17 +460,18 @@ h1 {
 
 .inline-team {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  text-align: center;
   min-width: 0;
+  flex: 1;
 }
-
-.inline-team.right { justify-content: flex-end; }
 
 .inline-flag {
   width: 36px;
-  height: 24px;
-  border-radius: 8px 2px 8px 2px;
+  height: 36px;
+  border-radius: 50%;
   object-fit: cover;
   background: #f7f7f7;
   border: 2px solid rgba(255, 255, 255, 0.4);
@@ -453,10 +479,11 @@ h1 {
 
 .inline-name {
   font-family: "Bebas Neue", Impact, sans-serif;
-  font-size: 20px;
-  line-height: 0.94;
+  font-size: 18px;
+  line-height: 1.0;
   letter-spacing: 0.02em;
-  overflow-wrap: anywhere;
+  hyphens: auto;
+  word-break: break-word;
 }
 
 .inline-score-block {
@@ -502,9 +529,47 @@ h1 {
 }
 
 .prediction-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 8px 10px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.06);
+}
+
+.prediction-row.inline-edit {
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.inline-edit-inputs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inline-edit-input {
+  width: 32px;
+  height: 26px;
+  text-align: center;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  font-size: 13px;
+  padding: 0;
+}
+
+.primary-btn.compact {
+  min-height: 26px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 0;
 }
 
 .prediction-row.empty { justify-content: space-between; }
@@ -513,7 +578,7 @@ h1 {
 .prediction-score { color: var(--accent-cyan); }
 .points { color: var(--accent-yellow); }
 
-.prediction-editor, .bonus-form { display: grid; gap: 10px; }
+.bonus-form { display: grid; gap: 10px; }
 
 .editable-prediction {
   display: grid;
@@ -698,11 +763,11 @@ h1 {
   }
 
   .match-grid.compact-grid {
-    grid-template-columns: repeat(auto-fill, 230px);
+    grid-template-columns: repeat(auto-fill, 230px) !important;
   }
 
   .match-card {
-    width: 230px;
+    width: 230px !important;
   }
 }
 
@@ -733,21 +798,14 @@ h1 {
     padding: 14px;
   }
 
-  .view-toolbar {
-    align-items: stretch;
-  }
-
-  .toolbar-group {
-    flex: 1 1 0;
-  }
-
-  .toolbar-select {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .section-stack {
+  .section-stack-rows {
     display: grid;
+    gap: 14px;
+  }
+
+  .days-row {
+    display: grid;
+    gap: 14px;
   }
 
   .day-section.compact-day {
@@ -755,12 +813,12 @@ h1 {
   }
 
   .match-grid.compact-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
     width: 100%;
   }
 
   .match-card {
-    width: 100%;
+    width: 100% !important;
   }
 
   .inline-name {
