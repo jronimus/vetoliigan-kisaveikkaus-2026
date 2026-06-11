@@ -44,10 +44,19 @@ export type ApiGroup = {
   teams: ApiGroupTeam[];
 };
 
+export type ApiStadium = {
+  id: string;
+  name_en: string;
+  fifa_name: string;
+  city_en: string;
+  country_en: string;
+};
+
 export type WorldCupState = {
   games: ApiGame[];
   teams: ApiTeam[];
   groups: ApiGroup[];
+  stadiums: ApiStadium[];
   lastUpdated?: Date;
   error?: string;
   source?: "direct" | "proxy" | "fallback" | "cache";
@@ -115,6 +124,11 @@ export const FALLBACK_GROUPS: ApiGroup[] = [
   },
 ];
 
+export const FALLBACK_STADIUMS: ApiStadium[] = [
+  { id: "1", name_en: "Estadio Azteca", fifa_name: "Mexico City Stadium", city_en: "Mexico City", country_en: "Mexico" },
+  { id: "2", name_en: "Estadio Akron", fifa_name: "Estadio Guadalajara", city_en: "Guadalajara (Zapopan)", country_en: "Mexico" },
+];
+
 function cleanJinaPayload(raw: string) {
   const marker = "Markdown Content:";
   const start = raw.indexOf(marker);
@@ -139,8 +153,8 @@ async function fetchViaJina<T>(url: string): Promise<T> {
   return JSON.parse(cleanJinaPayload(text)) as T;
 }
 
-function buildState(games: ApiGame[], teams: ApiTeam[], groups: ApiGroup[], source: WorldCupState["source"]) {
-  return { games, teams, groups, lastUpdated: new Date(), source };
+function buildState(games: ApiGame[], teams: ApiTeam[], groups: ApiGroup[], stadiums: ApiStadium[], source: WorldCupState["source"]) {
+  return { games, teams, groups, stadiums, lastUpdated: new Date(), source };
 }
 
 export function loadCachedWorldCup() {
@@ -160,30 +174,33 @@ export function saveCachedWorldCup(state: WorldCupState) {
 
 export async function fetchWorldCup(): Promise<WorldCupState> {
   try {
-    const [gamesJson, teamsJson, groupsJson] = await Promise.all([
+    const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
       fetchStatic<{ games: ApiGame[] }>("games.json"),
       fetchStatic<{ teams: ApiTeam[] }>("teams.json"),
       fetchStatic<{ groups: ApiGroup[] }>("groups.json"),
+      fetchStatic<{ stadiums: ApiStadium[] }>("stadiums.json"),
     ]);
-    return buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], "direct");
+    return buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], stadiumsJson.stadiums ?? [], "direct");
   } catch {
     // fall through to live endpoints
   }
 
   try {
-    const [gamesJson, teamsJson, groupsJson] = await Promise.all([
+    const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
       fetchJson<{ games: ApiGame[] }>(`${API}/games`, { cache: "no-store" }),
       fetchJson<{ teams: ApiTeam[] }>(`${API}/teams`, { cache: "force-cache" }),
       fetchJson<{ groups: ApiGroup[] }>(`${API}/groups`, { cache: "no-store" }),
+      fetchJson<{ stadiums: ApiStadium[] }>(`${API}/stadiums`, { cache: "force-cache" }),
     ]);
-    return buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], "direct");
+    return buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], stadiumsJson.stadiums ?? [], "direct");
   } catch {
-    const [gamesJson, teamsJson, groupsJson] = await Promise.all([
+    const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
       fetchViaJina<{ games: ApiGame[] }>("https://worldcup26.ir/get/games"),
       fetchViaJina<{ teams: ApiTeam[] }>("https://worldcup26.ir/get/teams"),
       fetchViaJina<{ groups: ApiGroup[] }>("https://worldcup26.ir/get/groups"),
+      fetchViaJina<{ stadiums: ApiStadium[] }>("https://worldcup26.ir/get/stadiums"),
     ]);
-    return buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], "proxy");
+    return buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], stadiumsJson.stadiums ?? [], "proxy");
   }
 }
 
@@ -216,7 +233,7 @@ export function parseScorers(value: string) {
     .map((entry) => entry.replace(/\s+\d+'\s*$/g, "").trim());
 }
 
-function finlandClockDate(game: ApiGame) {
+export function finlandClockDate(game: ApiGame) {
   const match = game.local_date.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
   if (!match) return undefined;
 
@@ -225,7 +242,7 @@ function finlandClockDate(game: ApiGame) {
   return new Date(baseUtc + (STADIUM_TO_FINLAND_HOURS[game.stadium_id] ?? 0) * 60 * 60 * 1000);
 }
 
-function currentFinlandClockMillis() {
+export function currentFinlandClockMillis() {
   const parts = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Europe/Helsinki",
     year: "numeric",
@@ -279,6 +296,14 @@ export function predictionLocked(game: ApiGame) {
   const kickoff = finlandClockDate(game);
   if (!kickoff) return false;
   return currentFinlandClockMillis() >= kickoff.getTime() - 60 * 1000;
+}
+
+export function archivedMatch(game: ApiGame) {
+  if (!isFinished(game)) return false;
+  const kickoff = finlandClockDate(game);
+  if (!kickoff) return false;
+  const archiveAfter = kickoff.getTime() + 12 * 60 * 60 * 1000;
+  return currentFinlandClockMillis() >= archiveAfter;
 }
 
 export function scorerTable(games: ApiGame[]) {
