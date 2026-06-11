@@ -4,10 +4,11 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { LogIn, LogOut, RotateCcw, Trophy } from "lucide-react";
 import clsx from "clsx";
 import { auth, db, firebaseEnabled, provider } from "./firebase";
-import { LOCK_DATE_LABEL, PLAYERS, SEEDED_PLAYERS, TEAM_FI, type BonusPicks, type PlayerName, type PlayerState } from "./data";
+import { LOCK_DATE_LABEL, PLAYERS, SEEDED_PLAYERS, TEAM_FI, type BonusPicks, type PlayerName, type PlayerState, type Prediction } from "./data";
 import { describeMatch, matchPoints, standings } from "./scoring";
 import {
   FALLBACK_GAMES,
+  FALLBACK_GROUPS,
   FALLBACK_TEAMS,
   fetchWorldCup,
   finnishKickoff,
@@ -16,10 +17,12 @@ import {
   loadCachedWorldCup,
   parseScore,
   parseScorers,
+  predictionLocked,
   saveCachedWorldCup,
   scorerTable,
   teamName,
   type ApiGame,
+  type ApiGroup,
   type ApiTeam,
   type WorldCupState,
 } from "./worldcup";
@@ -51,24 +54,34 @@ function normalizeTeam(name: string) {
   return TEAM_FI[name] ?? name;
 }
 
-function flagFor(teams: ApiTeam[], name: string) {
-  return teams.find((team) => team.name_en === name)?.flag;
+function teamByName(teams: ApiTeam[], name: string) {
+  return teams.find((team) => team.name_en === name);
 }
 
-function fifaCodeFor(teams: ApiTeam[], name: string) {
-  return teams.find((team) => team.name_en === name)?.fifa_code ?? name.slice(0, 3).toUpperCase();
+function teamById(teams: ApiTeam[], id: string) {
+  return teams.find((team) => team.id === id);
 }
 
 function statusLabel(game: ApiGame) {
-  if (isFinished(game)) return "FULL-TIME";
-  if (isLive(game)) return "LIVE";
-  return "UPCOMING";
+  if (isFinished(game)) return "Päättynyt";
+  if (isLive(game)) return "Livenä";
+  return "Tulossa";
 }
 
 function featuredMatches(games: ApiGame[]) {
   const scoreGames = games.filter((game) => isLive(game) || isFinished(game) || game.id === "1" || game.id === "2");
   const rest = games.filter((game) => !scoreGames.includes(game));
   return [...scoreGames, ...rest];
+}
+
+function filterLabel(value: string) {
+  if (value === "all") return "Kaikki";
+  if (value === "r32") return "32 parasta";
+  if (value === "r16") return "16 parasta";
+  if (value === "qf") return "Puolivälierät";
+  if (value === "sf") return "Välierät";
+  if (value === "final") return "Finaali";
+  return `Lohko ${value}`;
 }
 
 function MatchCard({
@@ -84,6 +97,8 @@ function MatchCard({
 }) {
   const home = teamName(game, "home");
   const away = teamName(game, "away");
+  const homeTeam = teamByName(teams, home);
+  const awayTeam = teamByName(teams, away);
   const homeScorers = parseScorers(game.home_scorers);
   const awayScorers = parseScorers(game.away_scorers);
   const predictions = players.filter((player) => player.predictions.some((item) => item.matchId === game.id));
@@ -96,34 +111,26 @@ function MatchCard({
 
       <div className="match-badges">
         <span className={clsx("match-status", { live: isLive(game), finished: isFinished(game) })}>{statusLabel(game)}</span>
-        <span className="group-tag">Group {game.group}</span>
+        <span className="group-tag">Lohko {game.group}</span>
       </div>
 
-      <div className="score-ribbon">
-        <div className="ribbon-side">
-          {flagFor(teams, home) ? <img className="flag-tab" src={flagFor(teams, home)} alt="" /> : null}
-          <span>{fifaCodeFor(teams, home)}</span>
-        </div>
-        <div className="ribbon-side away">
-          <span>{fifaCodeFor(teams, away)}</span>
-          {flagFor(teams, away) ? <img className="flag-tab" src={flagFor(teams, away)} alt="" /> : null}
-        </div>
-      </div>
+      <div className="date-ribbon">{finnishKickoff(game)}</div>
 
       <div className="match-stage">
-        <div className="score-pill">{finnishKickoff(game).replace("klo ", "")}</div>
         <div className="match-body">
           <div className="team-crest-block">
-            {flagFor(teams, home) ? <img className="hero-flag" src={flagFor(teams, home)} alt="" /> : null}
+            {homeTeam?.flag ? <img className="hero-flag" src={homeTeam.flag} alt="" /> : null}
             <span className="team-label">{normalizeTeam(home)}</span>
           </div>
+
           <div className="hero-score">
             <span>{parseScore(game.home_score)}</span>
             <span className="colon">:</span>
             <span>{parseScore(game.away_score)}</span>
           </div>
+
           <div className="team-crest-block">
-            {flagFor(teams, away) ? <img className="hero-flag" src={flagFor(teams, away)} alt="" /> : null}
+            {awayTeam?.flag ? <img className="hero-flag" src={awayTeam.flag} alt="" /> : null}
             <span className="team-label">{normalizeTeam(away)}</span>
           </div>
         </div>
@@ -131,27 +138,34 @@ function MatchCard({
 
       <div className="scorer-strip">
         <div>
-          <strong>{homeScorers.length ? homeScorers.join(", ") : "Ei maalintekijoita"}</strong>
-          <span>{home}</span>
+          <strong>{homeScorers.length ? homeScorers.join(", ") : "Ei maalintekijöitä"}</strong>
+          <span>{normalizeTeam(home)}</span>
         </div>
         <div>
-          <strong>{awayScorers.length ? awayScorers.join(", ") : "Ei maalintekijoita"}</strong>
-          <span>{away}</span>
+          <strong>{awayScorers.length ? awayScorers.join(", ") : "Ei maalintekijöitä"}</strong>
+          <span>{normalizeTeam(away)}</span>
         </div>
       </div>
 
       <div className="prediction-list">
-        {predictions.map((player) => {
-          const prediction = player.predictions.find((item) => item.matchId === game.id);
-          if (!prediction) return null;
-          return (
-            <div className="prediction-row" key={player.name}>
-              <strong>{player.name}</strong>
-              <span className="prediction-score">{prediction.home}-{prediction.away}</span>
-              <span className="points">{matchPoints(prediction, game)} p</span>
-            </div>
-          );
-        })}
+        {predictions.length ? (
+          predictions.map((player) => {
+            const prediction = player.predictions.find((item) => item.matchId === game.id);
+            if (!prediction) return null;
+            return (
+              <div className="prediction-row" key={player.name}>
+                <strong>{player.name}</strong>
+                <span className="prediction-score">{prediction.home}-{prediction.away}</span>
+                <span className="points">{matchPoints(prediction, game)} p</span>
+              </div>
+            );
+          })
+        ) : (
+          <div className="prediction-row empty">
+            <strong>Veikkaukset</strong>
+            <span className="muted small">Auki vielä</span>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -159,10 +173,23 @@ function MatchCard({
 
 function BonusEditor({ current, players, setPlayers }: { current?: PlayerName; players: PlayerState[]; setPlayers: (players: PlayerState[]) => void }) {
   const player = players.find((item) => item.name === current);
-  const [draft, setDraft] = useState<BonusPicks>(player?.bonus ?? { champion: "", topScorer: "", surprise: "", flop: "" });
+
+  if (!player) return <p className="subtle-note">Kirjaudu omalla Google-tilillä, niin voit täydentää bonusveikkaukset.</p>;
+
+  return (
+    <BonusEditorFields
+      key={`${player.name}-${player.bonus.champion}-${player.bonus.topScorer}-${player.bonus.surprise}-${player.bonus.flop}`}
+      player={player}
+      players={players}
+      setPlayers={setPlayers}
+    />
+  );
+}
+
+function BonusEditorFields({ player, players, setPlayers }: { player: PlayerState; players: PlayerState[]; setPlayers: (players: PlayerState[]) => void }) {
+  const [draft, setDraft] = useState<BonusPicks>(player.bonus);
 
   async function saveBonus() {
-    if (!player) return;
     const next = players.map((item) => (item.name === player.name ? { ...item, bonus: draft } : item));
     setPlayers(next);
     saveLocal(next);
@@ -171,16 +198,164 @@ function BonusEditor({ current, players, setPlayers }: { current?: PlayerName; p
     }
   }
 
-  if (!player) return <p className="subtle-note">Kirjaudu omalla Google-tililla, niin voit taydentaa bonusveikkaukset.</p>;
-
   return (
     <div className="bonus-form">
       <label>Maailmanmestari<input value={draft.champion} onChange={(event) => setDraft({ ...draft, champion: event.target.value })} /></label>
       <label>Maalikuningas<input value={draft.topScorer} onChange={(event) => setDraft({ ...draft, topScorer: event.target.value })} /></label>
-      <label>Yllattaja<input value={draft.surprise} onChange={(event) => setDraft({ ...draft, surprise: event.target.value })} /></label>
+      <label>Yllättäjä<input value={draft.surprise} onChange={(event) => setDraft({ ...draft, surprise: event.target.value })} /></label>
       <label>Floppi<input value={draft.flop} onChange={(event) => setDraft({ ...draft, flop: event.target.value })} /></label>
       <button className="primary-btn" onClick={saveBonus}>Tallenna bonusveikkaukset</button>
-      <p className="subtle-note">Ottelutulosveikkaukset pysyvat lukittuina valmiiksi syotettyina.</p>
+    </div>
+  );
+}
+
+function PredictionEditor({
+  current,
+  games,
+  players,
+  setPlayers,
+}: {
+  current?: PlayerName;
+  games: ApiGame[];
+  players: PlayerState[];
+  setPlayers: (players: PlayerState[]) => void;
+}) {
+  const player = players.find((item) => item.name === current);
+
+  if (!player) return <p className="subtle-note">Kirjaudu sisään tai valitse käyttäjä, niin voit syöttää tulevien otteluiden veikkaukset.</p>;
+
+  return (
+    <PredictionEditorFields
+      key={`${player.name}-${player.predictions.map((prediction) => `${prediction.matchId}:${prediction.home}-${prediction.away}`).join("|")}`}
+      player={player}
+      games={games}
+      players={players}
+      setPlayers={setPlayers}
+    />
+  );
+}
+
+function PredictionEditorFields({
+  player,
+  games,
+  players,
+  setPlayers,
+}: {
+  player: PlayerState;
+  games: ApiGame[];
+  players: PlayerState[];
+  setPlayers: (players: PlayerState[]) => void;
+}) {
+  const [drafts, setDrafts] = useState<Record<string, { home: string; away: string }>>(() => {
+    const next: Record<string, { home: string; away: string }> = {};
+    player.predictions.forEach((prediction) => {
+      next[prediction.matchId] = { home: String(prediction.home), away: String(prediction.away) };
+    });
+    return next;
+  });
+
+  const openGames = games.filter((game) => {
+    const prediction = player.predictions.find((item) => item.matchId === game.id);
+    return !prediction?.locked && !predictionLocked(game);
+  });
+
+  async function savePrediction(game: ApiGame) {
+    if (!player) return;
+    const draft = drafts[game.id] ?? { home: "", away: "" };
+    const home = Number.parseInt(draft.home, 10);
+    const away = Number.parseInt(draft.away, 10);
+    if (!Number.isFinite(home) || !Number.isFinite(away) || home < 0 || away < 0) return;
+
+    const nextPrediction: Prediction = { matchId: game.id, home, away, locked: predictionLocked(game) };
+    const nextPlayer = {
+      ...player,
+      predictions: [...player.predictions.filter((item) => item.matchId !== game.id), nextPrediction],
+    };
+    const nextPlayers = players.map((item) => (item.name === player.name ? nextPlayer : item));
+
+    setPlayers(nextPlayers);
+    saveLocal(nextPlayers);
+
+    if (firebaseEnabled && db) {
+      await setDoc(doc(db, "players", player.name), nextPlayer, { merge: true });
+    }
+  }
+
+  return (
+    <div className="prediction-editor">
+      {openGames.length ? openGames.map((game) => {
+        const home = normalizeTeam(teamName(game, "home"));
+        const away = normalizeTeam(teamName(game, "away"));
+        const draft = drafts[game.id] ?? { home: "", away: "" };
+
+        return (
+          <div className="editable-prediction" key={game.id}>
+            <div>
+              <strong>{home} - {away}</strong>
+              <div className="muted small">Sulkeutuu 1 min ennen aloitusta · {finnishKickoff(game)}</div>
+            </div>
+            <div className="editable-score">
+              <input
+                inputMode="numeric"
+                value={draft.home}
+                onChange={(event) => setDrafts((currentDrafts) => ({ ...currentDrafts, [game.id]: { ...draft, home: event.target.value } }))}
+              />
+              <span>:</span>
+              <input
+                inputMode="numeric"
+                value={draft.away}
+                onChange={(event) => setDrafts((currentDrafts) => ({ ...currentDrafts, [game.id]: { ...draft, away: event.target.value } }))}
+              />
+              <button className="ghost-btn compact" onClick={() => savePrediction(game)}>Tallenna</button>
+            </div>
+          </div>
+        );
+      }) : <p className="subtle-note">Tällä hetkellä ei ole avoimia otteluveikkauksia. Seuraavat rivit sulkeutuvat automaattisesti minuutti ennen aloitusta.</p>}
+    </div>
+  );
+}
+
+function GroupTables({ groups, teams }: { groups: ApiGroup[]; teams: ApiTeam[] }) {
+  const sortedGroups = [...groups].sort((a, b) => a.name.localeCompare(b.name));
+
+  return (
+    <div className="group-grid">
+      {sortedGroups.map((group) => (
+        <section className="group-card" key={group.name}>
+          <div className="section-title">
+            <h2>Lohko {group.name}</h2>
+          </div>
+          <div className="group-table">
+            <div className="group-table-head">
+              <span>Joukkue</span>
+              <span>O</span>
+              <span>V</span>
+              <span>T</span>
+              <span>H</span>
+              <span>ME</span>
+              <span>P</span>
+            </div>
+            {group.teams.map((row) => {
+              const team = teamById(teams, row.team_id);
+              const name = normalizeTeam(team?.name_en ?? row.team_id);
+              return (
+                <div className="group-table-row" key={`${group.name}-${row.team_id}`}>
+                  <span className="group-team">
+                    {team?.flag ? <img src={team.flag} alt="" className="mini-flag" /> : null}
+                    {name}
+                  </span>
+                  <span>{row.mp}</span>
+                  <span>{row.w}</span>
+                  <span>{row.d}</span>
+                  <span>{row.l}</span>
+                  <span>{row.gf}-{row.ga}</span>
+                  <span className="points">{row.pts}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
@@ -189,7 +364,9 @@ export default function App() {
   const cached = loadCachedWorldCup();
   const [games, setGames] = useState<ApiGame[]>(cached?.games ?? FALLBACK_GAMES);
   const [teams, setTeams] = useState<ApiTeam[]>(cached?.teams ?? FALLBACK_TEAMS);
+  const [groups, setGroups] = useState<ApiGroup[]>(cached?.groups ?? FALLBACK_GROUPS);
   const [players, setPlayers] = useState<PlayerState[]>(localPlayers);
+  const [view, setView] = useState<"matches" | "tables">("matches");
   const [tab, setTab] = useState("all");
   const [user, setUser] = useState<User | null>(null);
   const [demoName, setDemoName] = useState<PlayerName | undefined>();
@@ -203,6 +380,7 @@ export default function App() {
       const data = await fetchWorldCup();
       setGames(data.games);
       setTeams(data.teams);
+      setGroups(data.groups);
       setSyncState(data.source);
       saveCachedWorldCup(data);
     } catch {
@@ -210,11 +388,13 @@ export default function App() {
       if (cachedData?.games?.length) {
         setGames(cachedData.games);
         setTeams(cachedData.teams);
+        setGroups(cachedData.groups ?? FALLBACK_GROUPS);
         setSyncState("cache");
         return;
       }
       setGames(FALLBACK_GAMES);
       setTeams(FALLBACK_TEAMS);
+      setGroups(FALLBACK_GROUPS);
       setSyncState("fallback");
     }
   }
@@ -255,6 +435,11 @@ export default function App() {
 
   const table = useMemo(() => standings(players, games), [players, games]);
   const scorers = useMemo(() => scorerTable(games), [games]);
+  const matchFilters = useMemo(() => {
+    const groupsFromGames = [...new Set(games.filter((game) => game.type === "group").map((game) => game.group))].sort((a, b) => a.localeCompare(b));
+    const rounds = ["r32", "r16", "qf", "sf", "final"].filter((round) => games.some((game) => game.type === round));
+    return ["all", ...groupsFromGames, ...rounds];
+  }, [games]);
   const pickedTopScorers = players.map((player) => player.bonus.topScorer).filter(Boolean);
   const shownScorers = [
     ...scorers.slice(0, 10),
@@ -275,8 +460,8 @@ export default function App() {
     return (
       <main className="app-shell">
         <section className="panel denied">
-          <h1>Ei paasylistalla</h1>
-          <p className="hero-copy">Tama liiga on rajattu nimille Santeri, Sami, Ilpo ja Joni. Google-tilin etunimen taytyy olla yksi naista.</p>
+          <h1>Ei pääsylistalla</h1>
+          <p className="hero-copy">Tämä liiga on rajattu nimille Santeri, Sami, Ilpo ja Joni. Google-tilin etunimen täytyy olla yksi näistä.</p>
           <button className="ghost-btn" onClick={signOutUser}>Kirjaudu ulos</button>
         </section>
       </main>
@@ -290,8 +475,8 @@ export default function App() {
       <header className="hero">
         <div className="hero-copy-wrap">
           <div className="eyebrow">Vetoliigan kisaveikkaus 2026</div>
-          <h1>World Cup Board</h1>
-          <p className="hero-copy">Livetulokset, lukitut otteluveikkaukset, bonusrivit ja maalikuningaskisa samalla kisagraafisella taululla.</p>
+          <h1>Kisataulu</h1>
+          <p className="hero-copy">Livetulokset, veikkaukset, bonusrivit ja maalikuningastilanne samassa näkymässä.</p>
         </div>
 
         <div className="auth-card">
@@ -300,7 +485,7 @@ export default function App() {
               <span className="avatar">{(currentName ?? "?").slice(0, 1)}</span>
               <div>
                 <strong>{currentName ?? "Vierailija"}</strong>
-                <div className="subtle-note">{firebaseEnabled ? "Google-kirjautuminen aktiivinen" : "Demo-tila ilman Firebasea"}</div>
+                <div className="subtle-note">{firebaseEnabled ? "Google-kirjautuminen käytössä" : "Paikallinen tila tällä laitteella"}</div>
               </div>
             </div>
             {currentName ? (
@@ -312,7 +497,7 @@ export default function App() {
 
           <div className="sync-pill">
             <span className={clsx("sync-dot", syncState)} />
-            {syncState === "direct" || syncState === "proxy" ? "Tulostaulu synkassa" : "Naytetaan viimeisin saatavilla oleva data"}
+            {syncState === "direct" || syncState === "proxy" ? "Tulokset päivittyvät automaattisesti" : "Näytetään viimeisin saatavilla oleva data"}
           </div>
 
           {!firebaseEnabled ? (
@@ -331,35 +516,40 @@ export default function App() {
         <section className="main-stage">
           <div className="board-head">
             <div className="section-title">
-              <h2>Ottelut</h2>
-              <p className="subtle-note">Paivitys taustalla ilman vilkkumista. Voi painaa kasin uudestaan jos haluat pakottaa uuden haun.</p>
+              <h2>{view === "matches" ? "Ottelut" : "Lohkotaulukot"}</h2>
             </div>
             <div className="board-controls">
               <div className="tabs">
-                {["all", "A", "B", "C", "D", "r32", "r16", "qf", "sf", "final"].map((item) => (
+                <button className={clsx("tab", { active: view === "matches" })} onClick={() => setView("matches")}>Ottelut</button>
+                <button className={clsx("tab", { active: view === "tables" })} onClick={() => setView("tables")}>Taulukot</button>
+                {view === "matches" ? matchFilters.map((item) => (
                   <button className={clsx("tab", { active: tab === item })} key={item} onClick={() => setTab(item)}>
-                    {item === "all" ? "Kaikki" : item.toUpperCase()}
+                    {filterLabel(item)}
                   </button>
-                ))}
+                )) : null}
               </div>
-              <button className="icon-btn" title="Paivita nyt" onClick={loadCup}><RotateCcw size={18} /></button>
+              <button className="icon-btn" title="Päivitä nyt" onClick={loadCup}><RotateCcw size={18} /></button>
             </div>
           </div>
 
-          <div className="match-grid">
-            {visibleGames.map((game, index) => (
-              <MatchCard game={game} teams={teams} players={players} featured={index < 2} key={game.id} />
-            ))}
-          </div>
+          {view === "matches" ? (
+            <div className="match-grid">
+              {visibleGames.map((game, index) => (
+                <MatchCard game={game} teams={teams} players={players} featured={index < 2} key={game.id} />
+              ))}
+            </div>
+          ) : (
+            <GroupTables groups={groups} teams={teams} />
+          )}
 
           <section className="rules-grid">
             <div className="panel rules-panel">
               <div className="section-title"><h2>Pisteytys</h2></div>
               <div className="rule-list">
-                <div className="rule-item"><span className="badge">5</span><div><strong>Taysin oikea tulos</strong><span className="muted">Esim. 2-1 ja peli paattyy 2-1.</span></div></div>
-                <div className="rule-item"><span className="badge">3</span><div><strong>Oikea maaliero ja merkki</strong><span className="muted">Esim. 3-1 ja peli paattyy 2-0.</span></div></div>
-                <div className="rule-item"><span className="badge">2</span><div><strong>Oikea merkki, vaara maaliero</strong><span className="muted">Esim. 1-0 ja peli paattyy 3-1.</span></div></div>
-                <div className="rule-item"><span className="badge">1</span><div><strong>Tasapeli oikein, vaarat maalit</strong><span className="muted">Esim. 1-1 ja peli paattyy 2-2.</span></div></div>
+                <div className="rule-item"><span className="badge">5</span><div><strong>Täysin oikea tulos</strong><span className="muted">Esim. 2-1 ja peli päättyy 2-1.</span></div></div>
+                <div className="rule-item"><span className="badge">3</span><div><strong>Oikea maaliero ja merkki</strong><span className="muted">Esim. 3-1 ja peli päättyy 2-0.</span></div></div>
+                <div className="rule-item"><span className="badge">2</span><div><strong>Oikea merkki, väärä maaliero</strong><span className="muted">Esim. 1-0 ja peli päättyy 3-1.</span></div></div>
+                <div className="rule-item"><span className="badge">1</span><div><strong>Tasapeli oikein, väärät maalit</strong><span className="muted">Esim. 1-1 ja peli päättyy 2-2.</span></div></div>
               </div>
             </div>
 
@@ -369,7 +559,7 @@ export default function App() {
               <div className="rule-list">
                 <div className="rule-item"><span className="badge hot">20</span><div><strong>Oikea maailmanmestari</strong></div></div>
                 <div className="rule-item"><span className="badge">10</span><div><strong>Turnauksen maalikuningas</strong></div></div>
-                <div className="rule-item"><span className="badge">10</span><div><strong>Kisojen yllattaja</strong></div></div>
+                <div className="rule-item"><span className="badge">10</span><div><strong>Kisojen yllättäjä</strong></div></div>
                 <div className="rule-item"><span className="badge">10</span><div><strong>Kisojen floppi</strong></div></div>
               </div>
             </div>
@@ -389,7 +579,7 @@ export default function App() {
           </section>
 
           <section className="side-card">
-            <div className="section-title"><h2>Maalintekijat</h2></div>
+            <div className="section-title"><h2>Maalintekijät</h2></div>
             {shownScorers.length ? shownScorers.map((scorer, index) => {
               const pickers = players.filter((player) => player.bonus.topScorer.toLowerCase() === scorer.name.toLowerCase()).map((player) => player.name);
               return (
@@ -399,30 +589,35 @@ export default function App() {
                   <span className="points">{scorer.goals}</span>
                 </div>
               );
-            }) : <p className="subtle-note">Maalintekijataulu tayttyy heti kun dataa tulee.</p>}
+            }) : <p className="subtle-note">Maalintekijätaulu täyttyy heti kun dataa tulee.</p>}
           </section>
 
           <section className="side-card">
-            <div className="section-title"><h2>Bonus per kayttaja</h2></div>
+            <div className="section-title"><h2>Bonus per käyttäjä</h2></div>
             {players.map((player) => (
               <div className="bonus-row" key={player.name}>
                 <strong>{player.name}</strong>
-                <span className="muted small">{[player.bonus.champion, player.bonus.topScorer, player.bonus.surprise, player.bonus.flop].filter(Boolean).join(" / ") || "Ei viela valintoja"}</span>
+                <span className="muted small">{[player.bonus.champion, player.bonus.topScorer, player.bonus.surprise, player.bonus.flop].filter(Boolean).join(" / ") || "Ei vielä valintoja"}</span>
               </div>
             ))}
           </section>
 
           <section className="side-card">
-            <div className="section-title"><h2>Omat bonukset</h2></div>
-            <BonusEditor key={currentName ?? "guest"} current={currentName} players={players} setPlayers={setPlayers} />
+            <div className="section-title"><h2>Avoimet otteluveikkaukset</h2></div>
+            <PredictionEditor key={currentName ?? "guest-preds"} current={currentName} games={games} players={players} setPlayers={setPlayers} />
           </section>
 
           <section className="side-card">
-            <div className="section-title"><h2>Lukitut rivit</h2></div>
-            {games.filter((game) => players.some((player) => player.predictions.some((prediction) => prediction.matchId === game.id))).map((game) => (
+            <div className="section-title"><h2>Omat bonukset</h2></div>
+            <BonusEditor key={currentName ?? "guest-bonus"} current={currentName} players={players} setPlayers={setPlayers} />
+          </section>
+
+          <section className="side-card">
+            <div className="section-title"><h2>Sulkeutuneet ottelut</h2></div>
+            {games.filter((game) => players.some((player) => player.predictions.some((prediction) => prediction.matchId === game.id && (prediction.locked || predictionLocked(game))))).map((game) => (
               <div className="bonus-row" key={game.id}>
                 <strong>{describeMatch(game).split(" - ").map(normalizeTeam).join(" - ")}</strong>
-                <span className="muted small">{isFinished(game) ? "Pisteytetty" : "Odottaa lopputulosta"}</span>
+                <span className="muted small">{isFinished(game) ? "Pisteytetty" : "Rivi suljettu"}</span>
               </div>
             ))}
           </section>

@@ -12,7 +12,8 @@ async function getJson(path) {
 
 await mkdir(outDir, { recursive: true });
 
-const [games, teams] = await Promise.all([getJson("games"), getJson("teams")]);
+const [games, teams, groups] = await Promise.all([getJson("games"), getJson("teams"), getJson("groups")]);
 
 await writeFile(join(outDir, "games.json"), games);
 await writeFile(join(outDir, "teams.json"), teams);
+await writeFile(join(outDir, "groups.json"), groups);
