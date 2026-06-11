@@ -318,10 +318,9 @@ h1 {
 
 .match-grid.compact-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 250px));
+  grid-template-columns: repeat(auto-fill, 250px);
   gap: 12px;
-  width: fit-content;
-  max-width: 100%;
+  width: 100%;
 }
 
 .match-card {
@@ -376,18 +375,44 @@ h1 {
 }
 
 .top-ribbon {
-  display: flex;
+  display: grid;
   align-items: center;
-  justify-content: center;
+  justify-items: center;
+  gap: 5px;
   min-height: 38px;
   margin-top: 10px;
   padding: 0 12px;
   border-radius: 14px 14px 0 0;
   background: #f3f2ee;
   color: #111;
-  font-size: 18px;
+  font-size: 15px;
   letter-spacing: 0.03em;
   text-align: center;
+}
+
+.venue-name {
+  line-height: 1.05;
+}
+
+.channel-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.channel-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 19px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.12);
+  color: #111;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .match-stage {
@@ -431,12 +456,14 @@ h1 {
   font-size: 20px;
   line-height: 0.94;
   letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
 }
 
 .inline-score-block {
   display: grid;
   justify-items: center;
   gap: 3px;
+  min-width: 68px;
 }
 
 .inline-score {
@@ -671,7 +698,7 @@ h1 {
   }
 
   .match-grid.compact-grid {
-    grid-template-columns: repeat(auto-fit, minmax(230px, 230px));
+    grid-template-columns: repeat(auto-fill, 230px);
   }
 
   .match-card {
@@ -737,15 +764,20 @@ h1 {
   }
 
   .inline-name {
-    font-size: 18px;
+    font-size: 15px;
   }
 
   .inline-score {
-    font-size: 38px;
+    font-size: 32px;
   }
 
   .top-ribbon {
-    font-size: 15px;
+    font-size: 13px;
+  }
+
+  .channel-pill {
+    font-size: 9px;
+    padding: 0 6px;
   }
 
   .scorer-strip {

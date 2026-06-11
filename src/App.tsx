@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { auth, db, firebaseEnabled, provider } from "./firebase";
 import { LOCK_DATE_LABEL, TEAM_FI, SEEDED_PLAYERS, type BonusPicks, type PlayerName, type PlayerState, type Prediction } from "./data";
 import { matchPoints, standings } from "./scoring";
+import { tvChannelsForGame } from "./tvSchedule";
 import {
   FALLBACK_GAMES,
   FALLBACK_STADIUMS,
@@ -14,6 +15,7 @@ import {
   fetchWorldCup,
   finlandClockDate,
   finnishKickoff,
+  isBonusLocked,
   isFinished,
   isLive,
   loadCachedWorldCup,
@@ -80,6 +82,18 @@ function stageLabel(game: ApiGame) {
   if (game.type === "third") return "Pronssi";
   if (game.type === "final") return "Finaali";
   return game.type;
+}
+
+function filterLabel(value: string) {
+  if (value === "all") return "Kaikki";
+  if (value.length === 1) return `Lohko ${value}`;
+  if (value === "r32") return "32 parasta";
+  if (value === "r16") return "16 parasta";
+  if (value === "qf") return "Puolivälierät";
+  if (value === "sf") return "Välierät";
+  if (value === "third") return "Pronssi";
+  if (value === "final") return "Finaali";
+  return value;
 }
 
 function statusLabel(game: ApiGame) {
@@ -193,11 +207,13 @@ function MatchCard({
   teams,
   stadiums,
   players,
+  currentPlayerName,
 }: {
   game: ApiGame;
   teams: ApiTeam[];
   stadiums: ApiStadium[];
   players: PlayerState[];
+  currentPlayerName?: PlayerName;
 }) {
   const home = teamName(game, "home");
   const away = teamName(game, "away");
@@ -205,9 +221,12 @@ function MatchCard({
   const awayTeam = teamByName(teams, away);
   const homeScorers = parseScorers(game.home_scorers);
   const awayScorers = parseScorers(game.away_scorers);
-  const predictions = players.filter((player) => player.predictions.some((item) => item.matchId === game.id));
+  const predictions = players
+    .filter((player) => player.predictions.some((item) => item.matchId === game.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
   const scheduled = finlandClockDate(game);
   const infoLabel = cityCountry(stadiums, game);
+  const channels = tvChannelsForGame(game);
   const centerValue = isFinished(game) || isLive(game)
     ? `${parseScore(game.home_score)}:${parseScore(game.away_score)}`
     : scheduled
@@ -225,7 +244,14 @@ function MatchCard({
         <span className="group-tag">{stageLabel(game)}</span>
       </div>
 
-      <div className="top-ribbon">{infoLabel || "Kisapaikka"}</div>
+      <div className="top-ribbon">
+        <span className="venue-name">{infoLabel || "Kisapaikka"}</span>
+        {channels.length ? (
+          <span className="channel-pills">
+            {channels.map((channel) => <span className="channel-pill" key={channel}>{channel}</span>)}
+          </span>
+        ) : null}
+      </div>
 
       <div className="match-stage">
         <div className="match-inline">
@@ -236,7 +262,7 @@ function MatchCard({
 
           <div className="inline-score-block">
             <strong className="inline-score">{centerValue}</strong>
-            <span className="inline-time">{finnishKickoff(game)}</span>
+            {!isFinished(game) && !isLive(game) ? <span className="inline-time">{finnishKickoff(game)}</span> : null}
           </div>
 
           <div className="inline-team right">
@@ -261,11 +287,22 @@ function MatchCard({
         {predictions.length ? predictions.map((player) => {
           const prediction = player.predictions.find((item) => item.matchId === game.id);
           if (!prediction) return null;
+          const isLocked = predictionLocked(game);
+          const showActualScore = isLocked || player.name === currentPlayerName;
           return (
             <div className="prediction-row" key={player.name}>
               <strong>{player.name}</strong>
-              <span className="prediction-score">{prediction.home}-{prediction.away}</span>
-              <span className="points">{matchPoints(prediction, game)} p</span>
+              {showActualScore ? (
+                <>
+                  <span className="prediction-score">{prediction.home}-{prediction.away}</span>
+                  <span className="points">{matchPoints(prediction, game)} p</span>
+                </>
+              ) : (
+                <>
+                  <span className="prediction-score" style={{ color: "var(--muted)" }}>Valmis</span>
+                  <span className="points"></span>
+                </>
+              )}
             </div>
           );
         }) : (
@@ -286,6 +323,7 @@ function MatchSections({
   players,
   mode,
   groupFilter,
+  currentPlayerName,
 }: {
   games: ApiGame[];
   teams: ApiTeam[];
@@ -293,6 +331,7 @@ function MatchSections({
   players: PlayerState[];
   mode: MatchViewMode;
   groupFilter: string;
+  currentPlayerName?: PlayerName;
 }) {
   const visibleGames = useMemo(() => {
     if (mode === "group" && groupFilter !== "all") {
@@ -317,7 +356,7 @@ function MatchSections({
           <section className="day-section compact-day" key={label}>
             <div className="day-heading">{label}</div>
             <div className="match-grid compact-grid">
-              {labelGames.map((game) => <MatchCard game={game} teams={teams} stadiums={stadiums} players={players} key={game.id} />)}
+              {labelGames.map((game) => <MatchCard game={game} teams={teams} stadiums={stadiums} players={players} currentPlayerName={currentPlayerName} key={game.id} />)}
             </div>
           </section>
         ))}
@@ -326,7 +365,7 @@ function MatchSections({
           <section className="day-section compact-day">
             <div className="day-heading">Aikaisemmat ottelut</div>
             <div className="match-grid compact-grid">
-              {olderGames.map((game) => <MatchCard game={game} teams={teams} stadiums={stadiums} players={players} key={game.id} />)}
+              {olderGames.map((game) => <MatchCard game={game} teams={teams} stadiums={stadiums} players={players} currentPlayerName={currentPlayerName} key={game.id} />)}
             </div>
           </section>
         ) : null}
@@ -346,7 +385,7 @@ function MatchSections({
         <section className="day-section compact-day" key={label}>
           <div className="day-heading">{label}</div>
           <div className="match-grid compact-grid">
-            {labelGames.map((game) => <MatchCard game={game} teams={teams} stadiums={stadiums} players={players} key={game.id} />)}
+            {labelGames.map((game) => <MatchCard game={game} teams={teams} stadiums={stadiums} players={players} currentPlayerName={currentPlayerName} key={game.id} />)}
           </div>
         </section>
       ))}
@@ -355,7 +394,7 @@ function MatchSections({
         <section className="day-section compact-day">
           <div className="day-heading">Aikaisemmat ottelut</div>
           <div className="match-grid compact-grid">
-            {olderGames.map((game) => <MatchCard game={game} teams={teams} stadiums={stadiums} players={players} key={game.id} />)}
+            {olderGames.map((game) => <MatchCard game={game} teams={teams} stadiums={stadiums} players={players} currentPlayerName={currentPlayerName} key={game.id} />)}
           </div>
         </section>
       ) : null}
@@ -453,12 +492,26 @@ function BonusEditor({ current, players, setPlayers }: { current?: PlayerName; p
 
 function BonusEditorFields({ player, players, setPlayers }: { player: PlayerState; players: PlayerState[]; setPlayers: (players: PlayerState[]) => void }) {
   const [draft, setDraft] = useState<BonusPicks>(player.bonus);
+  const locked = isBonusLocked();
 
   async function saveBonus() {
+    if (locked) return;
     const next = players.map((item) => (item.name === player.name ? { ...item, bonus: draft } : item));
     setPlayers(next);
     saveLocal(next);
     if (firebaseEnabled && db) await setDoc(doc(db, "players", player.name), { ...player, bonus: draft }, { merge: true });
+  }
+
+  if (locked) {
+    return (
+      <div className="bonus-form read-only">
+        <div className="bonus-read-item"><span className="muted">Maailmanmestari:</span> <strong>{player.bonus.champion || "Ei valintaa"}</strong></div>
+        <div className="bonus-read-item"><span className="muted">Maalikuningas:</span> <strong>{player.bonus.topScorer || "Ei valintaa"}</strong></div>
+        <div className="bonus-read-item"><span className="muted">Yllättäjä:</span> <strong>{player.bonus.surprise || "Ei valintaa"}</strong></div>
+        <div className="bonus-read-item"><span className="muted">Floppi:</span> <strong>{player.bonus.flop || "Ei valintaa"}</strong></div>
+        <p className="subtle-note">Bonusveikkaukset ovat lukittuneet.</p>
+      </div>
+    );
   }
 
   return (
@@ -651,7 +704,7 @@ export default function App() {
                     <label className="toolbar-label" htmlFor="group-filter">Valinta</label>
                     <select id="group-filter" className="toolbar-select" value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
                       {availableFilters.map((item) => (
-                        <option key={item} value={item}>{item === "all" ? "Kaikki" : stageLabel({ type: item as ApiGame["type"], group: item } as ApiGame)}</option>
+                        <option key={item} value={item}>{filterLabel(item)}</option>
                       ))}
                     </select>
                   </div>
@@ -667,6 +720,7 @@ export default function App() {
                 players={players}
                 mode={matchViewMode}
                 groupFilter={groupFilter}
+                currentPlayerName={currentName}
               />
             </>
           ) : (
@@ -734,7 +788,9 @@ export default function App() {
           <section className="side-card">
             <div className="section-title"><h2>Maalintekijät</h2></div>
             {shownScorers.length ? shownScorers.map((scorer, index) => {
-              const pickers = players.filter((player) => player.bonus.topScorer.toLowerCase() === scorer.name.toLowerCase()).map((player) => player.name);
+              const pickers = isBonusLocked()
+                ? players.filter((player) => player.bonus.topScorer.toLowerCase() === scorer.name.toLowerCase()).map((player) => player.name)
+                : [];
               return (
                 <div className="scorer-row" key={scorer.name}>
                   <span className="rank">{index + 1}</span>
@@ -757,12 +813,22 @@ export default function App() {
 
           <section className="side-card">
             <div className="section-title"><h2>Bonus per käyttäjä</h2></div>
-            {players.map((player) => (
-              <div className="bonus-row" key={player.name}>
-                <strong>{player.name}</strong>
-                <span className="muted small">{[player.bonus.champion, player.bonus.topScorer, player.bonus.surprise, player.bonus.flop].filter(Boolean).join(" / ") || "Ei vielä valintoja"}</span>
-              </div>
-            ))}
+            {players.map((player) => {
+              const showDetails = isBonusLocked() || player.name === currentName;
+              const filledCount = [player.bonus.champion, player.bonus.topScorer, player.bonus.surprise, player.bonus.flop].filter(Boolean).length;
+              return (
+                <div className="bonus-row" key={player.name}>
+                  <strong>{player.name}</strong>
+                  <span className="muted small">
+                    {showDetails
+                      ? [player.bonus.champion, player.bonus.topScorer, player.bonus.surprise, player.bonus.flop].filter(Boolean).join(" / ") || "Ei vielä valintoja"
+                      : filledCount > 0
+                        ? `${filledCount}/4 valintaa tehty`
+                        : "Ei vielä valintoja"}
+                  </span>
+                </div>
+              );
+            })}
           </section>
         </aside>
       </div>

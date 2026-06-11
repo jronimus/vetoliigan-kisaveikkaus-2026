@@ -317,3 +317,9 @@ export function scorerTable(games: ApiGame[]) {
     .map(([name, goals]) => ({ name, goals }))
     .sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
 }
+
+export function isBonusLocked() {
+  const lockTime = Date.UTC(2026, 5, 12, 18, 55, 0); // 12.06.2026 klo 21.55 Suomen aikaa (UTC+3, so 18:55 UTC)
+  return Date.now() >= lockTime;
+}
+
