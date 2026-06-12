@@ -3,6 +3,9 @@ import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebas
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { LogIn, LogOut, Trophy } from "lucide-react";
 import clsx from "clsx";
+import joniLogo from "./assets/joni-logo.png";
+
+export type GameStatus = "upcoming" | "live" | "finished";
 import { auth, db, firebaseEnabled, provider } from "./firebase";
 import { LOCK_DATE_LABEL, TEAM_FI, SEEDED_PLAYERS, type BonusPicks, type PlayerName, type PlayerState, type Prediction } from "./data";
 import { matchPoints, standings } from "./scoring";
@@ -1236,7 +1239,7 @@ export default function App() {
           <div className="footer-credits">
             <span>&copy; {new Date().getFullYear()}</span>
             <a href="https://github.com/jronimus" target="_blank" rel="noopener noreferrer" className="footer-author-link">
-              <img src="/joni-logo.png" alt="Joni Ronimus" className="footer-logo" />
+              <img src={joniLogo} alt="Joni Ronimus" className="footer-logo" />
               Joni Ronimus
             </a>
           </div>
