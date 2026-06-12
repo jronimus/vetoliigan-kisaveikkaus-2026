@@ -358,28 +358,17 @@ img.avatar {
 .match-card {
   position: relative;
   overflow: hidden;
-  width: 280px; /* widened from 250px */
+  width: 280px;
   min-width: 0;
   padding: 12px;
   border-radius: 18px;
+  border: 3px solid transparent;
   background:
-    linear-gradient(180deg, rgba(161, 0, 0, 0.14), transparent 40%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.95), rgba(18, 18, 18, 0.96));
-  border: 2px solid rgba(255, 255, 255, 0.08);
+    linear-gradient(180deg, rgba(161, 0, 0, 0.08), transparent 40%) padding-box,
+    linear-gradient(180deg, rgba(0, 0, 0, 0.95), rgba(18, 18, 18, 0.96)) padding-box,
+    linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-red) 35%, var(--accent-green) 70%, var(--accent-yellow) 100%) border-box;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
-
-.match-shadow {
-  position: absolute;
-  inset: auto 12px 10px auto;
-  width: calc(100% - 24px);
-  height: calc(100% - 24px);
-  border-radius: 18px;
-  opacity: 0.9;
-}
-
-.match-shadow.red { box-shadow: 6px 8px 0 var(--accent-red); }
-.match-shadow.blue { box-shadow: 10px 12px 0 var(--accent-blue); }
-.match-shadow.green { box-shadow: 14px 16px 0 var(--accent-green); }
 
 .match-status {
   display: inline-flex;
@@ -439,6 +428,7 @@ img.avatar {
   text-align: left; /* left align */
   box-sizing: border-box;
   border-bottom: 3.5px solid var(--accent-cyan);
+  overflow: hidden; /* prevents text overflow leaking outside the ribbon! */
 }
 
 .venue-name {
@@ -451,12 +441,12 @@ img.avatar {
 }
 
 .venue-name.marquee {
-  animation: marquee-scroll 12s linear infinite alternate;
+  animation: marquee-scroll 8s linear infinite alternate; /* faster scroll speed */
 }
 
 @keyframes marquee-scroll {
   0%, 20% { transform: translateX(0); }
-  80%, 100% { transform: translateX(calc(-100% + 210px)); } /* fits nicely in ribbon width */
+  80%, 100% { transform: translateX(calc(-100% + 240px)); } /* fits nicely in ribbon width */
 }
 
 .channel-pills {
@@ -538,13 +528,32 @@ img.avatar {
   border-bottom-right-radius: 2px;
 }
 
+.inline-name-wrap {
+  width: 82px; /* fixed size to keep layouts consistent */
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+}
+
 .inline-name {
   font-family: "Bebas Neue", Impact, sans-serif;
   font-size: 15px;
   line-height: 1.1;
   letter-spacing: 0.02em;
-  hyphens: auto;
-  word-break: break-word;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.inline-name.marquee {
+  display: inline-block;
+  animation: team-marquee-scroll 8s linear infinite alternate;
+  text-align: left;
+  width: max-content;
+}
+
+@keyframes team-marquee-scroll {
+  0%, 20% { transform: translateX(0); }
+  80%, 100% { transform: translateX(calc(-100% + 82px)); }
 }
 
 .inline-score-block {
@@ -560,6 +569,15 @@ img.avatar {
   border-radius: 12px;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.55);
   padding: 2px 6px;
+  box-sizing: border-box;
+}
+
+.inline-time-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+  height: 52px;
   box-sizing: border-box;
 }
 

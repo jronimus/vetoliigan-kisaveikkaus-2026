@@ -12,6 +12,7 @@ import {
   FALLBACK_STADIUMS,
   FALLBACK_TEAMS,
   archivedMatch,
+  currentFinlandClockMillis,
   fetchWorldCup,
   finlandClockDate,
   isBonusLocked,
@@ -311,15 +312,15 @@ function MatchCard({
       ? new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }).format(scheduled)
       : "--:--";
 
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => currentFinlandClockMillis());
   useEffect(() => {
     const kickoff = finlandClockDate(game);
     if (!kickoff || isFinished(game) || isLive(game)) return;
-    const diff = kickoff.getTime() - Date.now();
+    const diff = kickoff.getTime() - currentFinlandClockMillis();
     if (diff <= 0 || diff > 60 * 60 * 1000) return;
 
     const interval = setInterval(() => {
-      setNow(Date.now());
+      setNow(currentFinlandClockMillis());
     }, 1000);
     return () => clearInterval(interval);
   }, [game]);
@@ -347,14 +348,13 @@ function MatchCard({
   }, [awayScorers]);
 
   const kickoffStatus = getKickoffStatus(game, now);
-  const isLongVenue = (infoLabel || "").length > 22;
+  const isLongVenue = (infoLabel || "").length > 32;
+
+  const homeLong = normalizeTeam(home).length > 13;
+  const awayLong = normalizeTeam(away).length > 13;
 
   return (
     <article className="match-card">
-      <div className="match-shadow red" />
-      <div className="match-shadow blue" />
-      <div className="match-shadow green" />
-
       <div className="match-badges">
         <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
         <span className="group-tag">{stageLabel(game)}</span>
@@ -373,26 +373,32 @@ function MatchCard({
         <div className="match-inline">
           <div className="inline-team">
             {homeTeam?.flag ? <img className="inline-flag home-flag" src={homeTeam.flag} alt="" /> : null}
-            <span className="inline-name">{normalizeTeam(home)}</span>
+            <div className="inline-name-wrap">
+              <span className={clsx("inline-name", { marquee: homeLong })}>{normalizeTeam(home)}</span>
+            </div>
           </div>
 
-          <div className={clsx("inline-score-block", { "live-game": isLive(game) })}>
-            {isFinished(game) || isLive(game) ? (
+          {isFinished(game) || isLive(game) ? (
+            <div className={clsx("inline-score-block", { "live-game": isLive(game) })}>
               <div className="inline-score-wrap">
                 <span className="inline-score-val">{parseScore(game.home_score)}</span>
                 <span className="inline-score-colon">:</span>
                 <span className="inline-score-val">{parseScore(game.away_score)}</span>
               </div>
-            ) : (
+            </div>
+          ) : (
+            <div className="inline-time-block">
               <strong className={clsx("inline-score", typeof centerValue === "string" && centerValue.startsWith("Alkaa") ? "countdown" : "upcoming")}>
                 {centerValue}
               </strong>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="inline-team">
             {awayTeam?.flag ? <img className="inline-flag away-flag" src={awayTeam.flag} alt="" /> : null}
-            <span className="inline-name">{normalizeTeam(away)}</span>
+            <div className="inline-name-wrap">
+              <span className={clsx("inline-name", { marquee: awayLong })}>{normalizeTeam(away)}</span>
+            </div>
           </div>
         </div>
       </div>
