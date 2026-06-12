@@ -928,21 +928,38 @@ export default function App() {
         try {
           const snap = await getDoc(ref);
           if (!snap.exists()) {
+            const localMatch = localPlayers().find((p) => p.name === seed.name) || seed;
             if (seed.name === currentName) {
               try {
-                await setDoc(ref, seed);
+                await setDoc(ref, localMatch);
                 const fresh = await getDoc(ref);
-                return fresh.exists() ? (fresh.data() as PlayerState) : seed;
+                return fresh.exists() ? (fresh.data() as PlayerState) : localMatch;
               } catch (err: any) {
                 console.error(`Failed to initialize Firestore document for ${seed.name}:`, err);
                 hasFetchError = true;
                 fetchErrorMessage = err.message || String(err);
-                return seed;
+                return localMatch;
               }
             }
-            return seed;
+            return localMatch;
           }
-          return snap.data() as PlayerState;
+          
+          const serverData = snap.data() as PlayerState;
+          const localMatch = localPlayers().find((p) => p.name === seed.name) || seed;
+          
+          // If server is completely empty (e.g. initialized from mobile) but local has data, prefer local.
+          // This is a temporary migration safeguard.
+          const serverHasBonus = Boolean(serverData.bonus.champion || serverData.bonus.flop || serverData.bonus.surprise || serverData.bonus.topScorer);
+          const localHasBonus = Boolean(localMatch.bonus.champion || localMatch.bonus.flop || localMatch.bonus.surprise || localMatch.bonus.topScorer);
+          const serverHasBets = serverData.predictions.length > 0;
+          const localHasBets = localMatch.predictions.length > 0;
+          
+          if (!serverHasBonus && !serverHasBets && (localHasBonus || localHasBets) && seed.name === currentName) {
+            await setDoc(ref, localMatch);
+            return localMatch;
+          }
+
+          return serverData;
         } catch (err: any) {
           console.warn(`Could not fetch data for ${seed.name}:`, err);
           hasFetchError = true;
