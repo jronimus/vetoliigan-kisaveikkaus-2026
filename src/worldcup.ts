@@ -1,3 +1,5 @@
+import { TEAM_FI } from "./data";
+
 export type ApiGame = {
   id: string;
   home_score: string;
@@ -194,6 +196,8 @@ export function saveCachedWorldCup(state: WorldCupState) {
 }
 
 export async function fetchWorldCup(): Promise<WorldCupState> {
+  let state: WorldCupState;
+
   try {
     const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
       fetchStatic<{ games: ApiGame[] }>("games.json"),
@@ -201,28 +205,37 @@ export async function fetchWorldCup(): Promise<WorldCupState> {
       fetchStatic<{ groups: ApiGroup[] }>("groups.json"),
       fetchStatic<{ stadiums: ApiStadium[] }>("stadiums.json"),
     ]);
-    return buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], stadiumsJson.stadiums ?? [], "direct");
+    state = buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], stadiumsJson.stadiums ?? [], "direct");
   } catch {
-    // fall through to live endpoints
+    try {
+      const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
+        fetchJson<{ games: ApiGame[] }>(`${API}/games`, { cache: "no-store" }),
+        fetchJson<{ teams: ApiTeam[] }>(`${API}/teams`, { cache: "force-cache" }),
+        fetchJson<{ groups: ApiGroup[] }>(`${API}/groups`, { cache: "no-store" }),
+        fetchJson<{ stadiums: ApiStadium[] }>(`${API}/stadiums`, { cache: "force-cache" }),
+      ]);
+      state = buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], stadiumsJson.stadiums ?? [], "direct");
+    } catch {
+      const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
+        fetchViaJina<{ games: ApiGame[] }>("https://worldcup26.ir/get/games"),
+        fetchViaJina<{ teams: ApiTeam[] }>("https://worldcup26.ir/get/teams"),
+        fetchViaJina<{ groups: ApiGroup[] }>("https://worldcup26.ir/get/groups"),
+        fetchViaJina<{ stadiums: ApiStadium[] }>("https://worldcup26.ir/get/stadiums"),
+      ]);
+      state = buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], stadiumsJson.stadiums ?? [], "proxy");
+    }
   }
 
   try {
-    const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
-      fetchJson<{ games: ApiGame[] }>(`${API}/games`, { cache: "no-store" }),
-      fetchJson<{ teams: ApiTeam[] }>(`${API}/teams`, { cache: "force-cache" }),
-      fetchJson<{ groups: ApiGroup[] }>(`${API}/groups`, { cache: "no-store" }),
-      fetchJson<{ stadiums: ApiStadium[] }>(`${API}/stadiums`, { cache: "force-cache" }),
-    ]);
-    return buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], stadiumsJson.stadiums ?? [], "direct");
-  } catch {
-    const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
-      fetchViaJina<{ games: ApiGame[] }>("https://worldcup26.ir/get/games"),
-      fetchViaJina<{ teams: ApiTeam[] }>("https://worldcup26.ir/get/teams"),
-      fetchViaJina<{ groups: ApiGroup[] }>("https://worldcup26.ir/get/groups"),
-      fetchViaJina<{ stadiums: ApiStadium[] }>("https://worldcup26.ir/get/stadiums"),
-    ]);
-    return buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], stadiumsJson.stadiums ?? [], "proxy");
+    const yleMatches = await fetchYleFallback(state.teams.map((t) => t.name_en));
+    if (yleMatches && yleMatches.length > 0) {
+      state.games = overlayYleMatches(state.games, state.teams, yleMatches);
+    }
+  } catch (err) {
+    console.warn("Failed to overlay Yle Teletext matches:", err);
   }
+
+  return state;
 }
 
 export function isFinished(game: ApiGame) {
@@ -353,5 +366,254 @@ export function scorerTable(games: ApiGame[]) {
 export function isBonusLocked() {
   const lockTime = Date.UTC(2026, 5, 12, 18, 55, 0); // 12.06.2026 klo 21.55 Suomen aikaa (UTC+3, so 18:55 UTC)
   return Date.now() >= lockTime;
+}
+
+export function normalizeTeamName(name: string): string {
+  let n = name.toLowerCase().trim();
+  n = n.replace(/ä/g, "a").replace(/ö/g, "o").replace(/å/g, "a").replace(/é/g, "e").replace(/ç/g, "c");
+  n = n.replace(/[^a-z0-9]/g, " ");
+  n = n.replace(/\s+/g, " ").trim();
+  return n;
+}
+
+export const YLE_TEAM_ALIAS: Record<string, string> = {
+  "usa": "United States",
+  "tshekki": "Czech Republic",
+  "hollanti": "Netherlands",
+  "bosnia hertsegovina": "Bosnia and Herzegovina",
+  "kongo": "Democratic Republic of the Congo",
+  "kongon dem tasavalta": "Democratic Republic of the Congo",
+};
+
+export function getTeamEnName(finnishName: string, allEnglishNames: string[]): string | null {
+  const norm = normalizeTeamName(finnishName);
+
+  if (YLE_TEAM_ALIAS[norm]) {
+    return YLE_TEAM_ALIAS[norm];
+  }
+
+  for (const en of allEnglishNames) {
+    const fi = TEAM_FI[en];
+    if (fi && normalizeTeamName(fi) === norm) {
+      return en;
+    }
+    if (normalizeTeamName(en) === norm) {
+      return en;
+    }
+  }
+
+  for (const en of allEnglishNames) {
+    const fi = TEAM_FI[en];
+    if (fi) {
+      const normFi = normalizeTeamName(fi);
+      if (normFi.includes(norm) || norm.includes(normFi)) {
+        return en;
+      }
+    }
+    const normEn = normalizeTeamName(en);
+    if (normEn.includes(norm) || norm.includes(normEn)) {
+      return en;
+    }
+  }
+
+  return null;
+}
+
+export type YleParsedMatch = {
+  home_team: string;
+  away_team: string;
+  home_score: string;
+  away_score: string;
+  home_scorers: string[];
+  away_scorers: string[];
+  finished: boolean;
+};
+
+type YleTeletextLine = {
+  number?: string;
+  Text?: string;
+};
+
+type YleTeletextContentItem = {
+  type?: string;
+  line?: YleTeletextLine[];
+};
+
+type YleTeletextSubpage = {
+  content?: YleTeletextContentItem[];
+};
+
+type YleTeletextResponse = {
+  teletext?: {
+    page?: {
+      subpage?: YleTeletextSubpage[];
+    };
+  };
+};
+
+export async function fetchYleFallback(allEnglishNames: string[]): Promise<YleParsedMatch[]> {
+  try {
+    const workerBase = API.replace(/\/get\/?$/, "");
+    const yleProxyUrl = `${workerBase}/yle-proxy`;
+
+    const json = await fetchJson<YleTeletextResponse>(yleProxyUrl, { cache: "no-store" });
+    const subpage = json?.teletext?.page?.subpage?.[0];
+    if (!subpage?.content) return [];
+
+    const lines: string[] = [];
+    for (const contentItem of subpage.content) {
+      if (contentItem.type === "text" && Array.isArray(contentItem.line)) {
+        for (const l of contentItem.line) {
+          const lineNum = l?.number ? parseInt(l.number, 10) : NaN;
+          if (Number.isNaN(lineNum) || lineNum < 1 || lineNum > 24) continue;
+
+          let text = l.Text || "";
+          text = text.padEnd(40, " ");
+          lines[lineNum - 1] = text;
+        }
+      }
+    }
+
+    const parsedMatches: YleParsedMatch[] = [];
+    let currentMatch: YleParsedMatch | null = null;
+
+    const matchHeaderRegex = /^\s*([A-Za-zåäöÅÄÖ\s-]+?)\s+-\s+([A-Za-zåäöÅÄÖ\s-]+?)\s+(\d+-\d+(?:\s+\(\d+-\d+\))?)\s*$/;
+    const scorerRegex = /^([^#0-9]+?)\s+(#\s*)?(\d+(?:\+\d+)?)\s*$/;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+
+      const match = line.match(matchHeaderRegex);
+      if (match) {
+        const homeFi = match[1].trim();
+        const awayFi = match[2].trim();
+        const scorePart = match[3].trim();
+
+        const scoreMatch = scorePart.match(/^(\d+)-(\d+)/);
+        const homeScore = scoreMatch ? scoreMatch[1] : "";
+        const awayScore = scoreMatch ? scoreMatch[2] : "";
+
+        const homeEn = getTeamEnName(homeFi, allEnglishNames) || homeFi;
+        const awayEn = getTeamEnName(awayFi, allEnglishNames) || awayFi;
+
+        currentMatch = {
+          home_team: homeEn,
+          away_team: awayEn,
+          home_score: homeScore,
+          away_score: awayScore,
+          home_scorers: [],
+          away_scorers: [],
+          finished: scorePart.includes("("),
+        };
+        parsedMatches.push(currentMatch);
+      } else if (currentMatch) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.includes(" - ") || trimmed.includes("klo ") || trimmed.includes("lohko") || trimmed.includes("MM-JALKAPALLO")) {
+          if (trimmed.includes("klo ") || trimmed.includes("lohko")) {
+            currentMatch = null;
+          }
+          continue;
+        }
+
+        const leftPart = line.slice(0, 17).trim();
+        const rightPart = line.slice(17).trim();
+
+        if (leftPart) {
+          const homeMatch = leftPart.match(scorerRegex);
+          if (homeMatch) {
+            const name = homeMatch[1].trim();
+            const isRed = !!homeMatch[2];
+            const min = homeMatch[3];
+            if (!isRed) {
+              currentMatch.home_scorers.push(`${name} ${min}'`);
+            }
+          }
+        }
+        if (rightPart) {
+          const awayMatch = rightPart.match(scorerRegex);
+          if (awayMatch) {
+            const name = awayMatch[1].trim();
+            const isRed = !!awayMatch[2];
+            const min = awayMatch[3];
+            if (!isRed) {
+              currentMatch.away_scorers.push(`${name} ${min}'`);
+            }
+          }
+        }
+      }
+    }
+
+    return parsedMatches;
+  } catch (err) {
+    console.warn("Failed to fetch/parse Yle Teletext fallback:", err);
+    return [];
+  }
+}
+
+export function overlayYleMatches(games: ApiGame[], teams: ApiTeam[], yleMatches: YleParsedMatch[]): ApiGame[] {
+  if (!yleMatches || yleMatches.length === 0) return games;
+
+  return games.map((game) => {
+    const homeTeam = teams.find((t) => t.id === game.home_team_id);
+    const awayTeam = teams.find((t) => t.id === game.away_team_id);
+    const homeEn = homeTeam ? homeTeam.name_en : (game.home_team_name_en || "");
+    const awayEn = awayTeam ? awayTeam.name_en : (game.away_team_name_en || "");
+
+    const normHome = normalizeTeamName(homeEn);
+    const normAway = normalizeTeamName(awayEn);
+
+    const yleMatch = yleMatches.find((ym) => {
+      return normalizeTeamName(ym.home_team) === normHome && normalizeTeamName(ym.away_team) === normAway;
+    });
+
+    if (yleMatch) {
+      if (yleMatch.home_score !== "" && yleMatch.away_score !== "") {
+        const updatedGame = {
+          ...game,
+          home_score: yleMatch.home_score,
+          away_score: yleMatch.away_score,
+          home_scorers: yleMatch.home_scorers.length > 0 ? `{${yleMatch.home_scorers.join(", ")}}` : "null",
+          away_scorers: yleMatch.away_scorers.length > 0 ? `{${yleMatch.away_scorers.join(", ")}}` : "null",
+          finished: yleMatch.finished ? "TRUE" : "FALSE",
+        };
+
+        if (yleMatch.finished) {
+          updatedGame.time_elapsed = "finished";
+        } else {
+          updatedGame.time_elapsed = "live";
+        }
+
+        return updatedGame;
+      }
+    }
+
+    return game;
+  });
+}
+
+export function getScoreBadgeText(game: ApiGame): string {
+  if (isFinished(game)) {
+    return "FULL-TIME";
+  }
+
+  const elapsed = String(game.time_elapsed).toLowerCase().trim();
+
+  if (elapsed === "ht" || elapsed === "halftime" || elapsed === "puoliaika") {
+    return "45'";
+  }
+
+  if (elapsed.includes("+")) {
+    const base = elapsed.split("+")[0].trim();
+    return `${base}'`;
+  }
+
+  const num = parseInt(elapsed, 10);
+  if (!isNaN(num)) {
+    if (num > 90) return "90'";
+    return `${num}'`;
+  }
+
+  return "LIVE";
 }
 
