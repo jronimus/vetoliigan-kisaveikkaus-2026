@@ -1506,3 +1506,73 @@ img.avatar {
   margin: 16px 0 10px 0;
   padding-top: 10px;
 }
+
+/* Footer */
+.app-footer {
+  margin-top: 40px;
+  padding: 30px 20px;
+  background: var(--surface-light);
+  border-top: 1px solid var(--border-light);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.footer-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .footer-content {
+    flex-direction: row;
+    justify-content: space-between;
+    text-align: left;
+  }
+}
+
+.footer-credits {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-author-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.footer-author-link:hover {
+  opacity: 0.8;
+}
+
+.footer-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.footer-repo a {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-repo a:hover {
+  color: var(--accent-blue);
+}
+
+.footer-sync {
+  display: flex;
+  align-items: center;
+}

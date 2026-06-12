@@ -1085,17 +1085,8 @@ export default function App() {
 
       <header className="hero">
         <div className="hero-copy-wrap">
-          <div className="eyebrow-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
-            <div className="eyebrow" style={{ marginBottom: 0 }}>Vetoliigan kisaveikkaus 2026</div>
-            {syncStatus.status !== "idle" && (
-              <span className={clsx("sync-status-badge", syncStatus.status)}>
-                {syncStatus.status === "loading" && "Synkronoidaan..."}
-                {syncStatus.status === "success" && "Tietokanta synkattu"}
-                {syncStatus.status === "error" && `Yhteysvirhe: ${syncStatus.message}`}
-              </span>
-            )}
-          </div>
-          <h1 style={{ marginTop: "10px" }}>Kisataulu</h1>
+          <div className="eyebrow">Vetoliigan kisaveikkaus 2026</div>
+          <h1>Kisataulu</h1>
         </div>
       </header>
 
@@ -1239,6 +1230,32 @@ export default function App() {
           <BonusBetsCard currentName={currentName} players={players} setPlayers={setPlayers} />
         </aside>
       </div>
+
+      <footer className="app-footer">
+        <div className="footer-content">
+          <div className="footer-credits">
+            <span>&copy; {new Date().getFullYear()}</span>
+            <a href="https://github.com/jronimus" target="_blank" rel="noopener noreferrer" className="footer-author-link">
+              <img src="/joni-logo.png" alt="Joni Ronimus" className="footer-logo" />
+              Joni Ronimus
+            </a>
+          </div>
+          <div className="footer-repo">
+            <a href="https://github.com/jronimus/vetoliigan-kisaveikkaus-2026" target="_blank" rel="noopener noreferrer">
+              Projektin lähdekoodi (GitHub)
+            </a>
+          </div>
+          <div className="footer-sync">
+            {syncStatus.status !== "idle" && (
+              <span className={clsx("sync-status-badge", syncStatus.status)}>
+                {syncStatus.status === "loading" && "Synkronoidaan..."}
+                {syncStatus.status === "success" && "Tietokanta synkattu"}
+                {syncStatus.status === "error" && `Yhteysvirhe: ${syncStatus.message}`}
+              </span>
+            )}
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
