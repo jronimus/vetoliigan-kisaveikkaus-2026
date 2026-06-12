@@ -1068,7 +1068,8 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell">
+    <>
+      <main className="app-shell">
       <div className="arena-backdrop" />
 
       {/* Mobile Header Auth (visible only on mobile in top right) */}
@@ -1233,9 +1234,10 @@ export default function App() {
           <BonusBetsCard currentName={currentName} players={players} setPlayers={setPlayers} />
         </aside>
       </div>
+    </main>
 
-      <footer className="app-footer">
-        <div className="footer-content">
+    <footer className="app-footer">
+      <div className="footer-content">
           <div className="footer-credits">
             <span>&copy; {new Date().getFullYear()}</span>
             <a href="https://github.com/jronimus" target="_blank" rel="noopener noreferrer" className="footer-author-link">
@@ -1259,6 +1261,6 @@ export default function App() {
           </div>
         </div>
       </footer>
-    </main>
+    </>
   );
 }
