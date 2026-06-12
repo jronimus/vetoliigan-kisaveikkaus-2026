@@ -879,13 +879,26 @@ export default function App() {
       SEEDED_PLAYERS.map(async (seed) => {
         const ref = doc(fire, "players", seed.name);
         const snap = await getDoc(ref);
-        if (!snap.exists()) await setDoc(ref, seed);
-        const fresh = await getDoc(ref);
-        return fresh.exists() ? (fresh.data() as PlayerState) : seed;
+        if (!snap.exists()) {
+          if (seed.name === currentName) {
+            try {
+              await setDoc(ref, seed);
+              const fresh = await getDoc(ref);
+              return fresh.exists() ? (fresh.data() as PlayerState) : seed;
+            } catch (err) {
+              console.error(`Failed to initialize Firestore document for ${seed.name}:`, err);
+              return seed;
+            }
+          }
+          return seed;
+        }
+        return snap.data() as PlayerState;
       }),
     ).then((next) => {
       setPlayers(next);
       saveLocal(next);
+    }).catch((err) => {
+      console.error("Error syncing players from Firestore:", err);
     });
   }, [currentName]);
 
