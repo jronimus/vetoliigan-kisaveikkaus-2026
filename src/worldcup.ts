@@ -258,6 +258,49 @@ export function parseScore(value: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
+export function stripAccents(str: string): string {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+export function normalizeScorerName(name: string): string {
+  const clean = name.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!clean) return "";
+
+  // Specific common overrides
+  if (clean === "kane" || clean === "harry kane" || clean === "h kane") {
+    return "H. Kane";
+  }
+  if (clean === "mbappe" || clean === "mbappe " || clean === "mbappé" || clean === "kylian mbappe" || clean === "kylian mbappé") {
+    return "K. Mbappé";
+  }
+  if (clean === "haaland" || clean === "erling haaland") {
+    return "E. Haaland";
+  }
+  if (clean === "messi" || clean === "lionel messi") {
+    return "L. Messi";
+  }
+  if (clean === "ronaldo" || clean === "cristiano ronaldo") {
+    return "C. Ronaldo";
+  }
+  if (clean === "bellingham" || clean === "jude bellingham") {
+    return "J. Bellingham";
+  }
+  if (clean === "vinicius" || clean === "vinicius jr" || clean === "vinicius junior" || clean === "vini jr") {
+    return "Vinícius Jr.";
+  }
+
+  // General case: "First Last" -> "F. Last"
+  const parts = clean.split(" ");
+  if (parts.length > 1) {
+    const first = parts[0];
+    const last = parts.slice(1).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+    return `${first.charAt(0).toUpperCase()}. ${last}`;
+  }
+
+  // Single word: "name" -> "Name"
+  return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
 export function parseScorers(value: string) {
   if (!value || value === "null") return [];
   return value
@@ -265,7 +308,8 @@ export function parseScorers(value: string) {
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean)
-    .map((entry) => entry.replace(/\s+\d+'\s*$/g, "").trim());
+    .map((entry) => entry.replace(/\s+\d+'\s*$/g, "").trim())
+    .map(normalizeScorerName);
 }
 
 export function finlandClockDate(game: ApiGame) {
