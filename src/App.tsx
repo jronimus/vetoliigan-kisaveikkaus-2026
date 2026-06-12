@@ -535,90 +535,35 @@ function MatchSections({
   const visibleRecentDays = allRecentDays.slice(0, visibleDaysCount);
   const hasMoreRecentDays = allRecentDays.length > visibleDaysCount;
 
-  // Pack recent games into rows of exactly 5 games (splitting days if necessary, repeating label)
-  const rows: Array<Array<{ label: string; games: ApiGame[] }>> = [];
-  let currentRow: Array<{ label: string; games: ApiGame[] }> = [];
-  let currentGamesCount = 0;
-
-  visibleRecentDays.forEach(([label, dayGames]) => {
-    let remainingGames = [...dayGames];
-    while (remainingGames.length > 0) {
-      const spaceLeft = 5 - currentGamesCount;
-      if (spaceLeft === 0) {
-        rows.push(currentRow);
-        currentRow = [];
-        currentGamesCount = 0;
-      }
-      const takeCount = Math.min(spaceLeft || 5, remainingGames.length);
-      const chunk = remainingGames.slice(0, takeCount);
-      remainingGames = remainingGames.slice(takeCount);
-
-      currentRow.push({ label, games: chunk });
-      currentGamesCount += takeCount;
-    }
-  });
-  if (currentRow.length > 0) {
-    rows.push(currentRow);
-  }
-
   // Group older games by date label
   const olderGroupedByDate = new Map<string, ApiGame[]>();
   olderGames.forEach((game) => {
     const key = dateLabel(game);
     olderGroupedByDate.set(key, [...(olderGroupedByDate.get(key) ?? []), game]);
   });
-
   const allOlderDays = [...olderGroupedByDate.entries()];
-
-  // Pack older games into rows of exactly 5 games (splitting days if necessary, repeating label)
-  const olderRows: Array<Array<{ label: string; games: ApiGame[] }>> = [];
-  let currentOlderRow: Array<{ label: string; games: ApiGame[] }> = [];
-  let currentOlderGamesCount = 0;
-
-  allOlderDays.forEach(([label, dayGames]) => {
-    let remainingGames = [...dayGames];
-    while (remainingGames.length > 0) {
-      const spaceLeft = 5 - currentOlderGamesCount;
-      if (spaceLeft === 0) {
-        olderRows.push(currentOlderRow);
-        currentOlderRow = [];
-        currentOlderGamesCount = 0;
-      }
-      const takeCount = Math.min(spaceLeft || 5, remainingGames.length);
-      const chunk = remainingGames.slice(0, takeCount);
-      remainingGames = remainingGames.slice(takeCount);
-
-      currentOlderRow.push({ label, games: chunk });
-      currentOlderGamesCount += takeCount;
-    }
-  });
-  if (currentOlderRow.length > 0) {
-    olderRows.push(currentOlderRow);
-  }
 
   return (
     <div className="section-stack-rows">
-      {rows.map((row, rowIndex) => (
-        <div className="days-row-grid" key={`recent-row-${rowIndex}`}>
-          {row.map((chunk) =>
-            chunk.games.map((game, gameIdx) => (
-              <div className="match-card-wrapper" key={game.id}>
-                <div className="match-day-header" style={{ visibility: gameIdx === 0 ? "visible" : "hidden" }}>
-                  {chunk.label}
-                </div>
-                <MatchCard
-                  game={game}
-                  teams={teams}
-                  stadiums={stadiums}
-                  players={players}
-                  currentPlayerName={currentPlayerName}
-                  setPlayers={setPlayers}
-                />
+      <div className="days-row-grid">
+        {visibleRecentDays.map(([label, games]) =>
+          games.map((game, gameIdx) => (
+            <div className="match-card-wrapper" key={game.id}>
+              <div className="match-day-header" style={{ visibility: gameIdx === 0 ? "visible" : "hidden" }}>
+                {label}
               </div>
-            ))
-          )}
-        </div>
-      ))}
+              <MatchCard
+                game={game}
+                teams={teams}
+                stadiums={stadiums}
+                players={players}
+                currentPlayerName={currentPlayerName}
+                setPlayers={setPlayers}
+              />
+            </div>
+          ))
+        )}
+      </div>
 
       {hasMoreRecentDays && (
         <div className="show-more-row">
@@ -628,34 +573,32 @@ function MatchSections({
         </div>
       )}
 
-      {olderRows.length ? (
+      {allOlderDays.length > 0 && (
         <div className="older-games-section">
           <div className="older-heading">Aikaisemmat ottelut</div>
           <div className="section-stack-rows">
-            {olderRows.map((row, rowIndex) => (
-              <div className="days-row-grid" key={`older-row-${rowIndex}`}>
-                {row.map((chunk) =>
-                  chunk.games.map((game, gameIdx) => (
-                    <div className="match-card-wrapper" key={game.id}>
-                      <div className="match-day-header" style={{ visibility: gameIdx === 0 ? "visible" : "hidden" }}>
-                        {chunk.label}
-                      </div>
-                      <MatchCard
-                        game={game}
-                        teams={teams}
-                        stadiums={stadiums}
-                        players={players}
-                        currentPlayerName={currentPlayerName}
-                        setPlayers={setPlayers}
-                      />
+            <div className="days-row-grid">
+              {allOlderDays.map(([label, games]) =>
+                games.map((game, gameIdx) => (
+                  <div className="match-card-wrapper" key={game.id}>
+                    <div className="match-day-header" style={{ visibility: gameIdx === 0 ? "visible" : "hidden" }}>
+                      {label}
                     </div>
-                  ))
-                )}
-              </div>
-            ))}
+                    <MatchCard
+                      game={game}
+                      teams={teams}
+                      stadiums={stadiums}
+                      players={players}
+                      currentPlayerName={currentPlayerName}
+                      setPlayers={setPlayers}
+                    />
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
