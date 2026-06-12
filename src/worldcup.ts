@@ -153,8 +153,24 @@ async function fetchViaJina<T>(url: string): Promise<T> {
   return JSON.parse(cleanJinaPayload(text)) as T;
 }
 
+const GAME_OVERRIDES: Record<string, Partial<ApiGame>> = {
+  // If the South Korea vs Czech Republic game (id: "2") fails to update, we can override its values here.
+  // Example:
+  // "2": { home_score: "1", away_score: "1", finished: "TRUE", time_elapsed: "finished", home_scorers: "{Son 45'}", away_scorers: "{Schick 80'}" }
+};
+
+export function applyGameOverrides(games: ApiGame[]): ApiGame[] {
+  return games.map((game) => {
+    const override = GAME_OVERRIDES[game.id];
+    if (override) {
+      return { ...game, ...override };
+    }
+    return game;
+  });
+}
+
 function buildState(games: ApiGame[], teams: ApiTeam[], groups: ApiGroup[], stadiums: ApiStadium[], source: WorldCupState["source"]) {
-  return { games, teams, groups, stadiums, lastUpdated: new Date(), source };
+  return { games: applyGameOverrides(games), teams, groups, stadiums, lastUpdated: new Date(), source };
 }
 
 export function loadCachedWorldCup() {
@@ -162,7 +178,12 @@ export function loadCachedWorldCup() {
   if (!saved) return undefined;
   try {
     const parsed = JSON.parse(saved) as WorldCupState;
-    return { ...parsed, lastUpdated: parsed.lastUpdated ? new Date(parsed.lastUpdated) : undefined, source: "cache" as const };
+    return {
+      ...parsed,
+      games: applyGameOverrides(parsed.games ?? []),
+      lastUpdated: parsed.lastUpdated ? new Date(parsed.lastUpdated) : undefined,
+      source: "cache" as const,
+    };
   } catch {
     return undefined;
   }

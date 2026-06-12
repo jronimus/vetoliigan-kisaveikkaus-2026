@@ -85,31 +85,28 @@ function stageLabel(game: ApiGame) {
 
 const WEEKDAYS_FI = ["Sunnuntai", "Maanantai", "Tiistai", "Keskiviikko", "Torstai", "Perjantai", "Lauantai"];
 
-function getKickoffStatus(game: ApiGame) {
+function getKickoffStatus(game: ApiGame, now: number) {
   if (isFinished(game)) return { text: "Päättynyt", type: "finished" };
   if (isLive(game)) return { text: "Live", type: "live" };
 
   const kickoff = finlandClockDate(game);
   if (!kickoff) return { text: "Tulossa", type: "upcoming" };
 
-  const now = Date.now();
   const diffMs = kickoff.getTime() - now;
 
   if (diffMs <= 0) {
     return { text: "Live", type: "live" };
   }
 
-  const diffMinutes = Math.floor(diffMs / (60 * 1000));
-  const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
-  const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-
-  if (diffMinutes < 60) {
-    return { text: `Alkaa ${diffMinutes} min päästä`, type: "upcoming" };
-  } else if (diffHours < 24) {
-    return { text: `Alkaa n. ${diffHours} h päästä`, type: "upcoming" };
-  } else {
-    return { text: `Alkaa n. ${diffDays} vrk päästä`, type: "upcoming" };
+  if (diffMs <= 60 * 60 * 1000) {
+    const diffMinutes = Math.floor(diffMs / (60 * 1000));
+    const diffSeconds = Math.floor((diffMs % (60 * 1000)) / 1000);
+    const mm = String(diffMinutes).padStart(2, "0");
+    const ss = String(diffSeconds).padStart(2, "0");
+    return { text: `Alkaa ${mm}:${ss}`, type: "upcoming" };
   }
+
+  return { text: "Tulossa", type: "upcoming" };
 }
 
 function dateLabel(game: ApiGame) {
@@ -122,17 +119,6 @@ function dateLabel(game: ApiGame) {
     timeZone: "UTC",
   }).format(kickoff);
   return `${dayName} ${datePart}`;
-}
-
-function formatScorersList(scorers: string[]) {
-  const counts: Record<string, number> = {};
-  scorers.forEach((name) => {
-    counts[name] = (counts[name] ?? 0) + 1;
-  });
-  
-  return Object.entries(counts)
-    .map(([name, count]) => count > 1 ? `${name} x${count}` : name)
-    .join(", ");
 }
 
 function kickoffMillis(game: ApiGame) {
@@ -229,11 +215,13 @@ function InlinePredictionEditor({
   game,
   players,
   setPlayers,
+  onSaveComplete,
 }: {
   player: PlayerState;
   game: ApiGame;
   players: PlayerState[];
   setPlayers: (players: PlayerState[]) => void;
+  onSaveComplete: () => void;
 }) {
   const prediction = player.predictions.find((item) => item.matchId === game.id);
   const [homeDraft, setHomeDraft] = useState(prediction ? String(prediction.home) : "");
@@ -253,12 +241,13 @@ function InlinePredictionEditor({
     setPlayers(nextPlayers);
     saveLocal(nextPlayers);
     if (firebaseEnabled && db) await setDoc(doc(db, "players", player.name), nextPlayer, { merge: true });
+    onSaveComplete();
   }
 
   return (
     <div className="prediction-row inline-edit">
-      <strong>{player.name}</strong>
-      <div className="inline-edit-inputs">
+      <strong className="pred-player-name">{player.name}</strong>
+      <div className="pred-score-wrap inline-edit-inputs">
         <input
           inputMode="numeric"
           pattern="[0-9]*"
@@ -274,6 +263,8 @@ function InlinePredictionEditor({
           onChange={(e) => setAwayDraft(e.target.value)}
           className="inline-edit-input"
         />
+      </div>
+      <div className="pred-points-wrap">
         <button className="primary-btn compact" onClick={save}>Tallenna</button>
       </div>
     </div>
@@ -320,7 +311,43 @@ function MatchCard({
       ? new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }).format(scheduled)
       : "--:--";
 
-  const kickoffStatus = getKickoffStatus(game);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const kickoff = finlandClockDate(game);
+    if (!kickoff || isFinished(game) || isLive(game)) return;
+    const diff = kickoff.getTime() - Date.now();
+    if (diff <= 0 || diff > 60 * 60 * 1000) return;
+
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [game]);
+
+  const myPrediction = players.find((p) => p.name === currentPlayerName)?.predictions.find((item) => item.matchId === game.id);
+  const hasPredicted = !!myPrediction;
+  const [prevHasPredicted, setPrevHasPredicted] = useState(hasPredicted);
+  const [isEditing, setIsEditing] = useState(!hasPredicted);
+
+  if (hasPredicted !== prevHasPredicted) {
+    setPrevHasPredicted(hasPredicted);
+    setIsEditing(!hasPredicted);
+  }
+
+  const homeLines = useMemo(() => {
+    const counts: Record<string, number> = {};
+    homeScorers.forEach((name) => { counts[name] = (counts[name] ?? 0) + 1; });
+    return Object.entries(counts).map(([name, count]) => count > 1 ? `${name} x${count}` : name);
+  }, [homeScorers]);
+
+  const awayLines = useMemo(() => {
+    const counts: Record<string, number> = {};
+    awayScorers.forEach((name) => { counts[name] = (counts[name] ?? 0) + 1; });
+    return Object.entries(counts).map(([name, count]) => count > 1 ? `${name} x${count}` : name);
+  }, [awayScorers]);
+
+  const kickoffStatus = getKickoffStatus(game, now);
+  const isLongVenue = (infoLabel || "").length > 22;
 
   return (
     <article className="match-card">
@@ -334,7 +361,7 @@ function MatchCard({
       </div>
 
       <div className="top-ribbon">
-        <span className="venue-name">{infoLabel || "Kisapaikka"}</span>
+        <span className={clsx("venue-name", { marquee: isLongVenue })}>{infoLabel || "Kisapaikka"}</span>
         {channels.length ? (
           <span className="channel-pills">
             {channels.map((channel) => <span className={clsx("channel-pill", channelClass(channel))} key={channel}>{channel}</span>)}
@@ -360,16 +387,14 @@ function MatchCard({
         </div>
       </div>
 
-      {homeScorers.length || awayScorers.length ? (
-        <div className="scorer-strip">
-          <div className="home-scorers">
-            {formatScorersList(homeScorers)}
+      <div className="scorer-strip-fixed">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <div className="scorer-row-line" key={i}>
+            <span className="home-scorer-name">{homeLines[i] || ""}</span>
+            <span className="away-scorer-name">{awayLines[i] || ""}</span>
           </div>
-          <div className="away-scorers">
-            {formatScorersList(awayScorers)}
-          </div>
-        </div>
-      ) : null}
+        ))}
+      </div>
 
       <div className="prediction-list">
         {displayPlayers.map((player) => {
@@ -377,7 +402,7 @@ function MatchCard({
           const isSelf = player.name === currentPlayerName;
           const isOpen = !predictionLocked(game);
 
-          if (isSelf && isOpen) {
+          if (isSelf && isOpen && isEditing) {
             return (
               <InlinePredictionEditor
                 key={player.name}
@@ -385,6 +410,7 @@ function MatchCard({
                 game={game}
                 players={players}
                 setPlayers={setPlayers}
+                onSaveComplete={() => setIsEditing(false)}
               />
             );
           }
@@ -393,26 +419,37 @@ function MatchCard({
 
           return (
             <div className="prediction-row" key={player.name}>
-              <strong>{player.name}</strong>
-              {!isOpen ? (
-                hasPredicted ? (
-                  <>
+              <strong className="pred-player-name">{player.name}</strong>
+              <div className="pred-score-wrap">
+                {!isOpen ? (
+                  prediction ? (
                     <span className="prediction-score">{prediction.home}-{prediction.away}</span>
+                  ) : (
+                    <span className="prediction-score empty-score">–</span>
+                  )
+                ) : (
+                  hasPredicted ? (
+                    <span className="prediction-score predicted-ok" title="Veikkaus tallennettu">✔</span>
+                  ) : (
+                    <span className="prediction-score empty-score">–</span>
+                  )
+                )}
+              </div>
+              <div className="pred-points-wrap">
+                {!isOpen ? (
+                  prediction ? (
                     <span className="points">{matchPoints(prediction, game)} p</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="prediction-score" style={{ color: "var(--muted)" }}>–</span>
+                  ) : (
                     <span className="points">0 p</span>
-                  </>
-                )
-              ) : (
-                hasPredicted ? (
-                  <span className="prediction-score" style={{ color: "var(--accent-green)" }} title="Veikkaus tallennettu">✔</span>
+                  )
                 ) : (
-                  <span className="prediction-score" style={{ color: "var(--muted)" }}>–</span>
-                )
-              )}
+                  isSelf && hasPredicted ? (
+                    <button className="compact-edit-btn" onClick={() => setIsEditing(true)}>Muuta</button>
+                  ) : (
+                    <span className="points-placeholder" />
+                  )
+                )}
+              </div>
             </div>
           );
         })}
@@ -531,7 +568,7 @@ function MatchSections({
           {row.map((chunk, chunkIndex) => (
             <section className="day-section compact-day" key={`${chunk.label}-${chunkIndex}`}>
               <div className="day-heading">{chunk.label}</div>
-              <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${chunk.games.length}, minmax(0, 250px))` }}>
+              <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${chunk.games.length}, minmax(0, 280px))` }}>
                 {chunk.games.map((game) => (
                   <MatchCard
                     game={game}
@@ -566,7 +603,7 @@ function MatchSections({
                 {row.map((chunk, chunkIndex) => (
                   <section className="day-section compact-day" key={`${chunk.label}-${chunkIndex}`}>
                     <div className="day-heading">{chunk.label}</div>
-                    <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${chunk.games.length}, minmax(0, 250px))` }}>
+                    <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${chunk.games.length}, minmax(0, 280px))` }}>
                       {chunk.games.map((game) => (
                         <MatchCard
                           game={game}
@@ -778,6 +815,21 @@ export default function App() {
     <main className="app-shell">
       <div className="arena-backdrop" />
 
+      {/* Mobile Header Auth (visible only on mobile in top right) */}
+      <div className="mobile-header-auth">
+        {currentName ? (
+          <div className="mobile-auth-logged">
+            {user?.photoURL ? (
+              <img src={user.photoURL} alt="" className="avatar avatar-img" referrerPolicy="no-referrer" onClick={signOutUser} title="Kirjaudu ulos" />
+            ) : (
+              <span className="avatar" onClick={signOutUser} title="Kirjaudu ulos">{(currentName ?? "?").slice(0, 1)}</span>
+            )}
+          </div>
+        ) : (
+          <button className="primary-btn compact" onClick={signIn}><LogIn size={14} /> Kirjaudu</button>
+        )}
+      </div>
+
       <header className="hero">
         <div className="hero-copy-wrap">
           <div className="eyebrow">Vetoliigan kisaveikkaus 2026</div>
@@ -794,26 +846,6 @@ export default function App() {
       </div>
 
       <div className="layout">
-        <section className="side-card auth-card mobile-only-auth">
-          <div className="auth-row">
-            <div className="user-pill">
-              {user?.photoURL ? (
-                <img src={user.photoURL} alt="" className="avatar avatar-img" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="avatar">{(currentName ?? "?").slice(0, 1)}</span>
-              )}
-              <div>
-                <strong>{currentName ?? "Vierailija"}</strong>
-              </div>
-            </div>
-            {currentName ? (
-              <button className="icon-btn" title="Kirjaudu ulos" onClick={signOutUser}><LogOut size={18} /></button>
-            ) : (
-              <button className="primary-btn" onClick={signIn}><LogIn size={16} /> Kirjaudu</button>
-            )}
-          </div>
-        </section>
-
         <section className="main-stage">
           {mainView === "matches" ? (
             <MatchSections
