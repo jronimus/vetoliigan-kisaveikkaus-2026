@@ -994,7 +994,6 @@ export default function App() {
         <div className="hero-copy-wrap">
           <div className="eyebrow">Vetoliigan kisaveikkaus 2026</div>
           <h1>Kisataulu</h1>
-          <p className="hero-copy">Livetulokset, veikkaukset, bonusrivit ja maalikuningastilanne samassa näkymässä.</p>
         </div>
       </header>
 

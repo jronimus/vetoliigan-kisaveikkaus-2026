@@ -15,6 +15,7 @@
   --accent-green: #0ad23f;
   --accent-cyan: #1de8d6;
   --accent-yellow: #efff19;
+  --accent-pink: #ff2bb7;
 }
 
 * { box-sizing: border-box; }
@@ -24,12 +25,23 @@ html, body, #root { min-height: 100%; }
 body {
   margin: 0;
   min-width: 320px;
-  background-image: url("/bg.jpg");
+  background-color: #070707;
+  background-image:
+    radial-gradient(circle at 100% 0%, var(--accent-cyan) 0%, var(--accent-cyan) 15vw, var(--accent-pink) 15vw, var(--accent-pink) 25vw, transparent 25.1vw),
+    radial-gradient(circle at 0% 100%, var(--accent-green) 0%, var(--accent-green) 18vw, var(--accent-red) 18vw, var(--accent-red) 28vw, transparent 28.1vw),
+    radial-gradient(circle at 0% 0%, var(--accent-yellow) 0%, var(--accent-yellow) 12vw, var(--accent-blue) 12vw, var(--accent-blue) 22vw, transparent 22.1vw);
   background-attachment: fixed;
-  background-position: center;
   background-repeat: no-repeat;
-  background-size: 100% auto;
   color: var(--text);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  border: 16px solid #0c319e;
+  pointer-events: none;
+  z-index: 9999;
 }
 
 button, input, select { font: inherit; }
@@ -153,6 +165,9 @@ h1 {
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 18px;
   align-items: start;
+  max-width: 1882px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .sidebar {
@@ -1148,6 +1163,17 @@ img.avatar {
 }
 
 @media (max-width: 840px) {
+  body {
+    background-image:
+      radial-gradient(circle at 100% 0%, var(--accent-cyan) 0%, var(--accent-cyan) 25vh, var(--accent-pink) 25vh, var(--accent-pink) 40vh, transparent 40.1vh),
+      radial-gradient(circle at 0% 100%, var(--accent-green) 0%, var(--accent-green) 28vh, var(--accent-red) 28vh, var(--accent-red) 43vh, transparent 43.1vh),
+      radial-gradient(circle at 0% 0%, var(--accent-yellow) 0%, var(--accent-yellow) 20vh, var(--accent-blue) 20vh, var(--accent-blue) 35vh, transparent 35.1vh) !important;
+  }
+
+  body::after {
+    display: none !important;
+  }
+
   .app-shell {
     padding: 10px 0 24px; /* full width body, 0 horizontal padding */
   }
