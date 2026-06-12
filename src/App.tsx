@@ -228,47 +228,64 @@ function InlinePredictionEditor({
   const prediction = player.predictions.find((item) => item.matchId === game.id);
   const [homeDraft, setHomeDraft] = useState(prediction ? String(prediction.home) : "");
   const [awayDraft, setAwayDraft] = useState(prediction ? String(prediction.away) : "");
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   async function save() {
     const home = Number.parseInt(homeDraft, 10);
     const away = Number.parseInt(awayDraft, 10);
     if (!Number.isFinite(home) || !Number.isFinite(away) || home < 0 || away < 0) return;
 
+    setSaveError(null);
     const nextPrediction: Prediction = { matchId: game.id, home, away, locked: predictionLocked(game) };
     const nextPlayer = {
       ...player,
       predictions: [...player.predictions.filter((item) => item.matchId !== game.id), nextPrediction],
     };
     const nextPlayers = players.map((item) => (item.name === player.name ? nextPlayer : item));
-    setPlayers(nextPlayers);
-    saveLocal(nextPlayers);
-    if (firebaseEnabled && db) await setDoc(doc(db, "players", player.name), nextPlayer, { merge: true });
-    onSaveComplete();
+    
+    try {
+      if (firebaseEnabled && db) {
+        await setDoc(doc(db, "players", player.name), nextPlayer, { merge: true });
+      }
+      setPlayers(nextPlayers);
+      saveLocal(nextPlayers);
+      onSaveComplete();
+    } catch (err: any) {
+      console.error("Error saving match prediction:", err);
+      setSaveError(err.message || String(err));
+    }
   }
 
   return (
-    <div className="prediction-row inline-edit">
-      <strong className="pred-player-name">{player.name}</strong>
-      <div className="pred-score-wrap inline-edit-inputs">
-        <input
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={homeDraft}
-          onChange={(e) => setHomeDraft(e.target.value)}
-          className="inline-edit-input"
-        />
-        <span>:</span>
-        <input
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={awayDraft}
-          onChange={(e) => setAwayDraft(e.target.value)}
-          className="inline-edit-input"
-        />
+    <div className="prediction-row inline-edit" style={{ display: "flex", flexDirection: "column", gap: "6px", alignItems: "stretch" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+        <strong className="pred-player-name">{player.name}</strong>
+        <div className="pred-score-wrap inline-edit-inputs">
+          <input
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={homeDraft}
+            onChange={(e) => setHomeDraft(e.target.value)}
+            className="inline-edit-input"
+          />
+          <span>:</span>
+          <input
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={awayDraft}
+            onChange={(e) => setAwayDraft(e.target.value)}
+            className="inline-edit-input"
+          />
+        </div>
+        <div className="pred-points-wrap">
+          <button className="primary-btn compact" onClick={save}>Tallenna</button>
+        </div>
       </div>
-      <div className="pred-points-wrap">
-        <button className="primary-btn compact" onClick={save}>Tallenna</button>
-      </div>
+      {saveError && (
+        <div style={{ color: "var(--accent-red)", fontSize: "10px", textAlign: "right", marginTop: "-2px" }}>
+          Virhe: {saveError}
+        </div>
+      )}
     </div>
   );
 }
@@ -654,6 +671,7 @@ function BonusBetsCard({
   const [draft, setDraft] = useState<BonusPicks>(() => {
     return player ? { ...player.bonus } : { champion: "", topScorer: "", surprise: "", flop: "" };
   });
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (player) {
@@ -663,13 +681,20 @@ function BonusBetsCard({
 
   async function handleSave() {
     if (locked || !player) return;
+    setSaveError(null);
     const next = players.map((item) => (item.name === player.name ? { ...item, bonus: draft } : item));
-    setPlayers(next);
-    saveLocal(next);
-    if (firebaseEnabled && db) {
-      await setDoc(doc(db, "players", player.name), { ...player, bonus: draft }, { merge: true });
+    
+    try {
+      if (firebaseEnabled && db) {
+        await setDoc(doc(db, "players", player.name), { ...player, bonus: draft }, { merge: true });
+      }
+      setPlayers(next);
+      saveLocal(next);
+      setIsEditing(false);
+    } catch (err: any) {
+      console.error("Error saving bonus bets:", err);
+      setSaveError(err.message || String(err));
     }
-    setIsEditing(false);
   }
 
   return (
@@ -753,9 +778,14 @@ function BonusBetsCard({
                       placeholder="Esim. Englanti"
                     />
                   </div>
-                  <button className="primary-btn save-bonus-btn" onClick={handleSave}>
+                   <button className="primary-btn save-bonus-btn" onClick={handleSave}>
                     Tallenna bonukset
                   </button>
+                  {saveError && (
+                    <div style={{ color: "var(--accent-red)", fontSize: "12px", marginTop: "8px", textAlign: "center" }}>
+                      Tallennus epäonnistui: {saveError}
+                    </div>
+                  )}
                 </div>
               ) : (
                 showPicks && (
@@ -839,6 +869,9 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const currentName = allowedName(firstName(user));
   const denied = Boolean(user && !currentName);
+  const [syncStatus, setSyncStatus] = useState<{ status: "idle" | "loading" | "success" | "error"; message?: string }>({
+    status: firebaseEnabled ? "loading" : "idle",
+  });
 
   async function loadCup() {
     try {
@@ -873,8 +906,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!firebaseEnabled || !db || !currentName) return;
+    if (!firebaseEnabled || !db || !currentName) {
+      if (!firebaseEnabled) {
+        setSyncStatus({ status: "idle" });
+      }
+      return;
+    }
     const fire = db;
+    setSyncStatus({ status: "loading" });
     Promise.all(
       SEEDED_PLAYERS.map(async (seed) => {
         const ref = doc(fire, "players", seed.name);
@@ -897,8 +936,10 @@ export default function App() {
     ).then((next) => {
       setPlayers(next);
       saveLocal(next);
-    }).catch((err) => {
+      setSyncStatus({ status: "success" });
+    }).catch((err: any) => {
       console.error("Error syncing players from Firestore:", err);
+      setSyncStatus({ status: "error", message: err.message || String(err) });
     });
   }, [currentName]);
 
@@ -1005,8 +1046,17 @@ export default function App() {
 
       <header className="hero">
         <div className="hero-copy-wrap">
-          <div className="eyebrow">Vetoliigan kisaveikkaus 2026</div>
-          <h1>Kisataulu</h1>
+          <div className="eyebrow-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
+            <div className="eyebrow" style={{ marginBottom: 0 }}>Vetoliigan kisaveikkaus 2026</div>
+            {syncStatus.status !== "idle" && (
+              <span className={clsx("sync-status-badge", syncStatus.status)}>
+                {syncStatus.status === "loading" && "Synkronoidaan..."}
+                {syncStatus.status === "success" && "Tietokanta synkattu"}
+                {syncStatus.status === "error" && `Yhteysvirhe: ${syncStatus.message}`}
+              </span>
+            )}
+          </div>
+          <h1 style={{ marginTop: "10px" }}>Kisataulu</h1>
         </div>
       </header>
 

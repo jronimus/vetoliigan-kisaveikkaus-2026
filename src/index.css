@@ -442,6 +442,37 @@ img.avatar {
   text-transform: uppercase;
 }
 
+.sync-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.sync-status-badge.loading {
+  background: rgba(239, 255, 25, 0.1);
+  color: var(--accent-yellow);
+  border: 1px solid rgba(239, 255, 25, 0.2);
+  animation: pulse-calm 2s infinite ease-in-out;
+}
+
+.sync-status-badge.success {
+  background: rgba(10, 210, 63, 0.1);
+  color: var(--accent-green);
+  border: 1px solid rgba(10, 210, 63, 0.25);
+}
+
+.sync-status-badge.error {
+  background: rgba(255, 43, 23, 0.1);
+  color: var(--accent-red);
+  border: 1px solid rgba(255, 43, 23, 0.25);
+}
+
 .match-status.upcoming {
   background: #ffffff;
   color: #111111;
