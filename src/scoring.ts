@@ -6,13 +6,37 @@ export function matchPoints(prediction: { home: number; away: number }, game: Ap
 
   const actualHome = parseScore(game.home_score);
   const actualAway = parseScore(game.away_score);
+
+  // 1. Fully correct score (e.g. 2-1 vs 2-1) -> 5 pts
+  if (prediction.home === actualHome && prediction.away === actualAway) {
+    return 5;
+  }
+
   const predictedDiff = prediction.home - prediction.away;
   const actualDiff = actualHome - actualAway;
+  const predictedSign = Math.sign(predictedDiff);
+  const actualSign = Math.sign(actualDiff);
 
-  if (prediction.home === actualHome && prediction.away === actualAway) return 5;
-  if (predictedDiff === actualDiff && Math.sign(predictedDiff) === Math.sign(actualDiff)) return 3;
-  if (Math.sign(predictedDiff) === Math.sign(actualDiff) && Math.sign(actualDiff) !== 0) return 2;
-  if (predictedDiff === 0 && actualDiff === 0) return 1;
+  const correctSign = predictedSign === actualSign;
+
+  if (correctSign) {
+    // It's a draw, but different goals (e.g. 1-1 vs 2-2) -> 2 pts
+    if (actualSign === 0) {
+      return 2;
+    }
+    // Correct diff and sign (e.g. 2-1 vs 3-2) -> 3 pts
+    if (predictedDiff === actualDiff) {
+      return 3;
+    }
+    // Correct sign, incorrect diff (e.g. 1-0 vs 3-1) -> 2 pts
+    return 2;
+  }
+
+  // Incorrect sign (tulos väärin) but one of the team's goals was correct -> 1 pt
+  if (prediction.home === actualHome || prediction.away === actualAway) {
+    return 1;
+  }
+
   return 0;
 }
 

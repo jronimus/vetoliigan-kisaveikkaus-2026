@@ -438,6 +438,7 @@ img.avatar {
   letter-spacing: 0.03em;
   text-align: left; /* left align */
   box-sizing: border-box;
+  border-bottom: 3.5px solid var(--accent-cyan);
 }
 
 .venue-name {
@@ -519,12 +520,22 @@ img.avatar {
 }
 
 .inline-flag {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 44px;
+  height: 30px;
   object-fit: cover;
   background: #f7f7f7;
-  border: 2px solid rgba(255, 255, 255, 0.4);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.home-flag {
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 2px;
+}
+
+.away-flag {
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 2px;
 }
 
 .inline-name {
@@ -537,23 +548,65 @@ img.avatar {
 }
 
 .inline-score-block {
-  display: grid;
-  justify-items: center;
-  gap: 3px;
-  min-width: 68px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 80px;
+  height: 52px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.55);
+  padding: 2px 6px;
+  box-sizing: border-box;
+}
+
+.inline-score-block.live-game {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 10px rgba(10, 210, 63, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.55);
 }
 
 .inline-score {
-  font-size: 42px;
-  line-height: 0.9;
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-align: center;
 }
 
-.inline-time {
-  color: var(--accent-yellow);
+.inline-score.upcoming {
+  font-size: 30px;
+  color: #fff;
+}
+
+.inline-score.countdown {
+  font-family: "Space Grotesk", sans-serif;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: var(--accent-yellow);
+}
+
+.inline-score-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.inline-score-val {
+  color: #fff;
+}
+
+.inline-score-colon {
+  color: var(--accent-yellow);
 }
 
 .scorer-strip-fixed {
@@ -564,9 +617,21 @@ img.avatar {
   border-radius: 10px;
   padding: 6px 10px;
   border: 1px solid rgba(255, 255, 255, 0.04);
-  height: 180px; /* 10 rows * 18px */
+  height: 96px; /* 5 rows * 16.8px + padding */
   box-sizing: border-box;
-  justify-content: space-between;
+  justify-content: flex-start;
+  overflow-y: auto;
+}
+
+.scorer-strip-fixed::-webkit-scrollbar {
+  width: 4px;
+}
+.scorer-strip-fixed::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+.scorer-strip-fixed::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
 }
 
 .scorer-row-line {
@@ -1069,7 +1134,7 @@ img.avatar {
   }
 
   .scorer-strip-fixed {
-    height: 180px; /* retain fixed height on mobile too */
+    height: 96px; /* retain fixed height on mobile too */
   }
 
   .group-table-head,

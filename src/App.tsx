@@ -372,23 +372,33 @@ function MatchCard({
       <div className="match-stage">
         <div className="match-inline">
           <div className="inline-team">
-            {homeTeam?.flag ? <img className="inline-flag" src={homeTeam.flag} alt="" /> : null}
+            {homeTeam?.flag ? <img className="inline-flag home-flag" src={homeTeam.flag} alt="" /> : null}
             <span className="inline-name">{normalizeTeam(home)}</span>
           </div>
 
-          <div className="inline-score-block">
-            <strong className="inline-score">{centerValue}</strong>
+          <div className={clsx("inline-score-block", { "live-game": isLive(game) })}>
+            {isFinished(game) || isLive(game) ? (
+              <div className="inline-score-wrap">
+                <span className="inline-score-val">{parseScore(game.home_score)}</span>
+                <span className="inline-score-colon">:</span>
+                <span className="inline-score-val">{parseScore(game.away_score)}</span>
+              </div>
+            ) : (
+              <strong className={clsx("inline-score", typeof centerValue === "string" && centerValue.startsWith("Alkaa") ? "countdown" : "upcoming")}>
+                {centerValue}
+              </strong>
+            )}
           </div>
 
           <div className="inline-team">
-            {awayTeam?.flag ? <img className="inline-flag" src={awayTeam.flag} alt="" /> : null}
+            {awayTeam?.flag ? <img className="inline-flag away-flag" src={awayTeam.flag} alt="" /> : null}
             <span className="inline-name">{normalizeTeam(away)}</span>
           </div>
         </div>
       </div>
 
       <div className="scorer-strip-fixed">
-        {Array.from({ length: 10 }).map((_, i) => (
+        {Array.from({ length: Math.max(5, Math.max(homeLines.length, awayLines.length)) }).map((_, i) => (
           <div className="scorer-row-line" key={i}>
             <span className="home-scorer-name">{homeLines[i] || ""}</span>
             <span className="away-scorer-name">{awayLines[i] || ""}</span>
@@ -867,7 +877,8 @@ export default function App() {
                 <div className="rule-item"><span className="badge">5</span><div><strong>Täysin oikea tulos</strong><span className="muted">Esim. 2-1 ja peli päättyy 2-1.</span></div></div>
                 <div className="rule-item"><span className="badge">3</span><div><strong>Oikea maaliero ja merkki</strong><span className="muted">Esim. 3-1 ja peli päättyy 2-0.</span></div></div>
                 <div className="rule-item"><span className="badge">2</span><div><strong>Oikea merkki, väärä maaliero</strong><span className="muted">Esim. 1-0 ja peli päättyy 3-1.</span></div></div>
-                <div className="rule-item"><span className="badge">1</span><div><strong>Tasapeli oikein, väärät maalit</strong><span className="muted">Esim. 1-1 ja peli päättyy 2-2.</span></div></div>
+                <div className="rule-item"><span className="badge">2</span><div><strong>Tasapeli oikein, väärät maalit</strong><span className="muted">Esim. 1-1 ja peli päättyy 2-2.</span></div></div>
+                <div className="rule-item"><span className="badge">1</span><div><strong>Toisen joukkueen maalimäärä oikein, tulos väärin</strong><span className="muted">Esim. veikkaus 2-0 ja peli päättyy 2-3.</span></div></div>
               </div>
             </div>
 
