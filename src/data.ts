@@ -22,7 +22,7 @@ export type PlayerState = {
   bonus: BonusPicks;
 };
 
-export const LOCK_DATE_LABEL = "12.06. klo 21.55 Suomen aikaa";
+export const LOCK_DATE_LABEL = "12.06. klo 22.00 Suomen aikaa";
 
 export const SEEDED_PLAYERS: PlayerState[] = [
   {

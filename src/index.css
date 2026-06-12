@@ -319,13 +319,14 @@ img.avatar {
   display: grid;
   gap: 18px;
   width: 100%;
+  overflow-x: auto;
+  padding-bottom: 8px;
 }
 
-.days-row {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 14px;
-  align-items: flex-start;
+.days-row-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 280px);
+  gap: 20px;
   width: fit-content;
 }
 
@@ -342,23 +343,16 @@ img.avatar {
   text-transform: uppercase;
 }
 
-.day-section.compact-day {
-  width: fit-content;
-  max-width: 100%;
-  padding: 14px 24px 24px 16px;
-}
-
-.day-heading {
+.match-day-header {
   margin-bottom: 10px;
   font-size: 28px;
   line-height: 0.92;
-}
-
-.match-grid.compact-grid {
-  display: grid;
-  justify-items: center;
-  gap: 20px;
-  width: fit-content;
+  font-family: "Bebas Neue", Impact, sans-serif;
+  text-transform: uppercase;
+  color: var(--text);
+  height: 28px;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .match-card-wrapper {
@@ -1206,24 +1200,14 @@ img.avatar {
     gap: 14px;
   }
 
-  .days-row {
-    display: grid;
+  .days-row-grid {
+    grid-template-columns: 1fr !important;
+    width: 100%;
     gap: 14px;
   }
 
-  .day-section.compact-day {
-    width: 100% !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-radius: 0 !important;
-    margin: 0 0 14px 0 !important;
-    padding: 12px !important;
-    box-sizing: border-box;
-  }
-
-  .match-grid.compact-grid {
-    grid-template-columns: 1fr !important;
-    width: 100%;
+  .match-day-header {
+    visibility: visible !important;
   }
 
   .match-card-wrapper {
@@ -1263,4 +1247,209 @@ img.avatar {
     grid-template-columns: minmax(0, 1.6fr) repeat(5, minmax(20px, 0.45fr)) minmax(24px, 0.45fr);
     font-size: 12px;
   }
+}
+
+/* BonusBetsCard and Maalipörssi Styles */
+.section-title-stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+
+.section-title-stacked h2 {
+  margin: 0;
+  font-size: 24px;
+  font-family: "Bebas Neue", Impact, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.deadline-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent-yellow);
+  background: rgba(239, 255, 25, 0.08);
+  border: 1px solid rgba(239, 255, 25, 0.2);
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bonus-bets-list {
+  display: grid;
+  gap: 16px;
+}
+
+.bonus-user-row {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: all 0.2s ease;
+}
+
+.bonus-user-row.is-me {
+  background: rgba(29, 86, 235, 0.03);
+  border-color: rgba(29, 86, 235, 0.15);
+}
+
+.bonus-user-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.bonus-user-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.me-pill {
+  font-size: 9px;
+  font-weight: 700;
+  background: var(--accent-blue);
+  color: #fff;
+  padding: 1px 4px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.bonus-status-indicator {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.bonus-status-indicator.done {
+  color: var(--accent-green);
+  background: rgba(10, 210, 63, 0.08);
+  border: 1px solid rgba(10, 210, 63, 0.2);
+}
+
+.bonus-status-indicator.pending {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.edit-bonus-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.edit-bonus-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.bonus-edit-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.bonus-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bonus-input-group label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.bonus-input {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 13px;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.bonus-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.save-bonus-btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: 6px;
+  font-size: 12px;
+  padding: 8px;
+}
+
+.bonus-picks-details {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.bonus-pick-detail-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.bonus-pick-detail-item .label {
+  color: var(--muted);
+}
+
+.bonus-pick-detail-item .val {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.scorer-picker-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(10, 210, 63, 0.08);
+  border: 1px solid rgba(10, 210, 63, 0.25);
+  color: var(--accent-green);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.scorer-divider {
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  margin: 16px 0 10px 0;
+  padding-top: 10px;
 }

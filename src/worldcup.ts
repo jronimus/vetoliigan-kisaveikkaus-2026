@@ -365,7 +365,7 @@ export function scorerTable(games: ApiGame[]) {
 }
 
 export function isBonusLocked() {
-  const lockTime = Date.UTC(2026, 5, 12, 18, 55, 0); // 12.06.2026 klo 21.55 Suomen aikaa (UTC+3, so 18:55 UTC)
+  const lockTime = Date.UTC(2026, 5, 12, 19, 0, 0); // 12.06.2026 klo 22.00 Suomen aikaa (UTC+3, so 19:00 UTC)
   return Date.now() >= lockTime;
 }
 

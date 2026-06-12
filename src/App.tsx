@@ -577,25 +577,24 @@ function MatchSections({
   return (
     <div className="section-stack-rows">
       {rows.map((row, rowIndex) => (
-        <div className="days-row" key={`recent-row-${rowIndex}`}>
-          {row.map((chunk, chunkIndex) => (
-            <section className="day-section compact-day" key={`${chunk.label}-${chunkIndex}`}>
-              <div className="day-heading">{chunk.label}</div>
-              <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${chunk.games.length}, minmax(0, 280px))` }}>
-                {chunk.games.map((game) => (
-                  <MatchCard
-                    game={game}
-                    teams={teams}
-                    stadiums={stadiums}
-                    players={players}
-                    currentPlayerName={currentPlayerName}
-                    setPlayers={setPlayers}
-                    key={game.id}
-                  />
-                ))}
+        <div className="days-row-grid" key={`recent-row-${rowIndex}`}>
+          {row.map((chunk) =>
+            chunk.games.map((game, gameIdx) => (
+              <div className="match-card-wrapper" key={game.id}>
+                <div className="match-day-header" style={{ visibility: gameIdx === 0 ? "visible" : "hidden" }}>
+                  {chunk.label}
+                </div>
+                <MatchCard
+                  game={game}
+                  teams={teams}
+                  stadiums={stadiums}
+                  players={players}
+                  currentPlayerName={currentPlayerName}
+                  setPlayers={setPlayers}
+                />
               </div>
-            </section>
-          ))}
+            ))
+          )}
         </div>
       ))}
 
@@ -612,25 +611,24 @@ function MatchSections({
           <div className="older-heading">Aikaisemmat ottelut</div>
           <div className="section-stack-rows">
             {olderRows.map((row, rowIndex) => (
-              <div className="days-row" key={`older-row-${rowIndex}`}>
-                {row.map((chunk, chunkIndex) => (
-                  <section className="day-section compact-day" key={`${chunk.label}-${chunkIndex}`}>
-                    <div className="day-heading">{chunk.label}</div>
-                    <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${chunk.games.length}, minmax(0, 280px))` }}>
-                      {chunk.games.map((game) => (
-                        <MatchCard
-                          game={game}
-                          teams={teams}
-                          stadiums={stadiums}
-                          players={players}
-                          currentPlayerName={currentPlayerName}
-                          setPlayers={setPlayers}
-                          key={game.id}
-                        />
-                      ))}
+              <div className="days-row-grid" key={`older-row-${rowIndex}`}>
+                {row.map((chunk) =>
+                  chunk.games.map((game, gameIdx) => (
+                    <div className="match-card-wrapper" key={game.id}>
+                      <div className="match-day-header" style={{ visibility: gameIdx === 0 ? "visible" : "hidden" }}>
+                        {chunk.label}
+                      </div>
+                      <MatchCard
+                        game={game}
+                        teams={teams}
+                        stadiums={stadiums}
+                        players={players}
+                        currentPlayerName={currentPlayerName}
+                        setPlayers={setPlayers}
+                      />
                     </div>
-                  </section>
-                ))}
+                  ))
+                )}
               </div>
             ))}
           </div>
@@ -640,44 +638,152 @@ function MatchSections({
   );
 }
 
-function BonusEditor({ current, players, setPlayers }: { current?: PlayerName; players: PlayerState[]; setPlayers: (players: PlayerState[]) => void }) {
-  const player = players.find((item) => item.name === current);
-  if (!player) return <p className="subtle-note">Kirjaudu omalla Google-tilillä, niin voit täydentää bonusveikkaukset.</p>;
-  return <BonusEditorFields key={`${player.name}-${JSON.stringify(player.bonus)}`} player={player} players={players} setPlayers={setPlayers} />;
-}
-
-function BonusEditorFields({ player, players, setPlayers }: { player: PlayerState; players: PlayerState[]; setPlayers: (players: PlayerState[]) => void }) {
-  const [draft, setDraft] = useState<BonusPicks>(player.bonus);
+function BonusBetsCard({
+  currentName,
+  players,
+  setPlayers,
+}: {
+  currentName?: PlayerName;
+  players: PlayerState[];
+  setPlayers: (players: PlayerState[]) => void;
+}) {
   const locked = isBonusLocked();
+  const player = players.find((p) => p.name === currentName);
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState<BonusPicks>(() => {
+    return player ? { ...player.bonus } : { champion: "", topScorer: "", surprise: "", flop: "" };
+  });
 
-  async function saveBonus() {
-    if (locked) return;
+  useEffect(() => {
+    if (player) {
+      setDraft({ ...player.bonus });
+    }
+  }, [player]);
+
+  async function handleSave() {
+    if (locked || !player) return;
     const next = players.map((item) => (item.name === player.name ? { ...item, bonus: draft } : item));
     setPlayers(next);
     saveLocal(next);
-    if (firebaseEnabled && db) await setDoc(doc(db, "players", player.name), { ...player, bonus: draft }, { merge: true });
-  }
-
-  if (locked) {
-    return (
-      <div className="bonus-form read-only">
-        <div className="bonus-read-item"><span className="muted">Maailmanmestari:</span> <strong>{player.bonus.champion || "Ei valintaa"}</strong></div>
-        <div className="bonus-read-item"><span className="muted">Maalikuningas:</span> <strong>{player.bonus.topScorer || "Ei valintaa"}</strong></div>
-        <div className="bonus-read-item"><span className="muted">Yllättäjä:</span> <strong>{player.bonus.surprise || "Ei valintaa"}</strong></div>
-        <div className="bonus-read-item"><span className="muted">Floppi:</span> <strong>{player.bonus.flop || "Ei valintaa"}</strong></div>
-        <p className="subtle-note">Bonusveikkaukset ovat lukittuneet.</p>
-      </div>
-    );
+    if (firebaseEnabled && db) {
+      await setDoc(doc(db, "players", player.name), { ...player, bonus: draft }, { merge: true });
+    }
+    setIsEditing(false);
   }
 
   return (
-    <div className="bonus-form">
-      <label>Maailmanmestari<input value={draft.champion} onChange={(event) => setDraft({ ...draft, champion: event.target.value })} /></label>
-      <label>Maalikuningas<input value={draft.topScorer} onChange={(event) => setDraft({ ...draft, topScorer: event.target.value })} /></label>
-      <label>Yllättäjä<input value={draft.surprise} onChange={(event) => setDraft({ ...draft, surprise: event.target.value })} /></label>
-      <label>Floppi<input value={draft.flop} onChange={(event) => setDraft({ ...draft, flop: event.target.value })} /></label>
-      <button className="primary-btn" onClick={saveBonus}>Tallenna bonusveikkaukset</button>
-    </div>
+    <section className="side-card">
+      <div className="section-title-stacked">
+        <h2>Bonusveikkaukset</h2>
+        <span className="deadline-badge">Sulkeutuu {LOCK_DATE_LABEL.replace(" Suomen aikaa", "")}</span>
+      </div>
+
+      <div className="bonus-bets-list">
+        {players.map((p) => {
+          const isMe = p.name === currentName;
+          const showPicks = locked || isMe;
+          const hasAny = !!(p.bonus.champion || p.bonus.topScorer || p.bonus.surprise || p.bonus.flop);
+
+          return (
+            <div className={clsx("bonus-user-row", { "is-me": isMe })} key={p.name}>
+              <div className="bonus-user-header">
+                <span className="bonus-user-name">
+                  <strong>{p.name}</strong> {isMe && <span className="me-pill">Minä</span>}
+                </span>
+                {!showPicks && (
+                  <span className={clsx("bonus-status-indicator", hasAny ? "done" : "pending")}>
+                    {hasAny ? "✓ Valinnat tehty" : "Ei vielä valintoja"}
+                  </span>
+                )}
+                {isMe && !locked && (
+                  <button 
+                    className="edit-bonus-btn"
+                    onClick={() => {
+                      if (!isEditing) {
+                        setDraft({ ...p.bonus });
+                      }
+                      setIsEditing(!isEditing);
+                    }}
+                  >
+                    {isEditing ? "Peruuta" : "Muokkaa"}
+                  </button>
+                )}
+              </div>
+
+              {isMe && isEditing && !locked ? (
+                <div className="bonus-edit-form">
+                  <div className="bonus-input-group">
+                    <label>Maailmanmestari</label>
+                    <input
+                      type="text"
+                      className="bonus-input"
+                      value={draft.champion}
+                      onChange={(e) => setDraft({ ...draft, champion: e.target.value })}
+                      placeholder="Esim. Saksa"
+                    />
+                  </div>
+                  <div className="bonus-input-group">
+                    <label>Maalikuningas</label>
+                    <input
+                      type="text"
+                      className="bonus-input"
+                      value={draft.topScorer}
+                      onChange={(e) => setDraft({ ...draft, topScorer: e.target.value })}
+                      placeholder="Esim. Mbappé"
+                    />
+                  </div>
+                  <div className="bonus-input-group">
+                    <label>Yllättäjä</label>
+                    <input
+                      type="text"
+                      className="bonus-input"
+                      value={draft.surprise}
+                      onChange={(e) => setDraft({ ...draft, surprise: e.target.value })}
+                      placeholder="Esim. Itävalta"
+                    />
+                  </div>
+                  <div className="bonus-input-group">
+                    <label>Floppi</label>
+                    <input
+                      type="text"
+                      className="bonus-input"
+                      value={draft.flop}
+                      onChange={(e) => setDraft({ ...draft, flop: e.target.value })}
+                      placeholder="Esim. Englanti"
+                    />
+                  </div>
+                  <button className="primary-btn save-bonus-btn" onClick={handleSave}>
+                    Tallenna bonukset
+                  </button>
+                </div>
+              ) : (
+                showPicks && (
+                  <div className="bonus-picks-details">
+                    <div className="bonus-pick-detail-item">
+                      <span className="label">Mestari:</span>
+                      <span className="val">{p.bonus.champion || "—"}</span>
+                    </div>
+                    <div className="bonus-pick-detail-item">
+                      <span className="label">Maalikuningas:</span>
+                      <span className="val">{p.bonus.topScorer || "—"}</span>
+                    </div>
+                    <div className="bonus-pick-detail-item">
+                      <span className="label">Yllättäjä:</span>
+                      <span className="val">{p.bonus.surprise || "—"}</span>
+                    </div>
+                    <div className="bonus-pick-detail-item">
+                      <span className="label">Floppi:</span>
+                      <span className="val">{p.bonus.flop || "—"}</span>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -796,11 +902,51 @@ export default function App() {
     }
     return ranks;
   }, [scorers]);
-  const pickedTopScorers = players.map((player) => player.bonus.topScorer).filter(Boolean);
-  const shownScorers = [
-    ...scorers.slice(0, 10),
-    ...scorers.filter((scorer) => pickedTopScorers.includes(scorer.name) && !scorers.slice(0, 10).some((item) => item.name === scorer.name)),
-  ];
+  const pickedTopScorers = useMemo(() => {
+    const set = new Set<string>();
+    players.forEach(p => {
+      const name = p.bonus.topScorer?.trim();
+      if (name) set.add(name);
+    });
+    return [...set];
+  }, [players]);
+
+  const topScorers = useMemo(() => scorers.slice(0, 10), [scorers]);
+
+  const extraScorers = useMemo(() => {
+    const list: Array<{ name: string; goals: number; rank: string | number; teamId?: string }> = [];
+
+    pickedTopScorers.forEach((pickedName) => {
+      const inTop10 = topScorers.some(s => s.name.toLowerCase() === pickedName.toLowerCase());
+      if (inTop10) return;
+
+      const scoredScorer = scorers.find(s => s.name.toLowerCase() === pickedName.toLowerCase());
+      if (scoredScorer) {
+        list.push({
+          name: scoredScorer.name,
+          goals: scoredScorer.goals,
+          rank: scorerRanks.get(scoredScorer.name) ?? "-",
+          teamId: scoredScorer.teamId
+        });
+      } else {
+        list.push({
+          name: pickedName,
+          goals: 0,
+          rank: "-",
+          teamId: undefined
+        });
+      }
+    });
+
+    return list.sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
+  }, [pickedTopScorers, topScorers, scorers, scorerRanks]);
+
+  const getPickersForScorer = (scorerName: string) => {
+    if (!isBonusLocked()) return [];
+    return players
+      .filter((p) => p.bonus.topScorer?.trim().toLowerCase() === scorerName.toLowerCase())
+      .map((p) => p.name);
+  };
 
   async function signIn() {
     if (firebaseEnabled && auth && provider) {
@@ -931,55 +1077,64 @@ export default function App() {
           </section>
 
           <section className="side-card">
-            <div className="section-title"><h2>Maalintekijät</h2></div>
-            {shownScorers.length ? shownScorers.map((scorer, index) => {
-              const pickers = isBonusLocked()
-                ? players.filter((player) => player.bonus.topScorer.toLowerCase() === scorer.name.toLowerCase()).map((player) => player.name)
-                : [];
-              const team = teamById(teams, scorer.teamId);
-              const flagUrl = team?.flag;
-              return (
-                <div className="scorer-row" key={scorer.name}>
-                  <span className="rank">{scorerRanks.get(scorer.name) ?? index + 1}</span>
-                  <span className="scorer-name">
-                    {flagUrl ? <img src={flagUrl} alt="" className="scorer-flag" /> : null}
-                    <span>
-                      {scorer.name}
-                      {pickers.length ? <span className="muted small"> / {pickers.join(", ")}</span> : null}
-                    </span>
-                  </span>
-                  <span className="points">{scorer.goals}</span>
-                </div>
-              );
-            }) : <p className="subtle-note">Maalintekijätaulu täyttyy heti kun dataa tulee.</p>}
+            <div className="section-title"><h2>Maalipörssi</h2></div>
+            {topScorers.length ? (
+              <div className="scorer-list">
+                {topScorers.map((scorer, index) => {
+                  const pickers = getPickersForScorer(scorer.name);
+                  const team = teamById(teams, scorer.teamId);
+                  const flagUrl = team?.flag;
+                  return (
+                    <div className="scorer-row" key={scorer.name}>
+                      <span className="rank">{scorerRanks.get(scorer.name) ?? index + 1}</span>
+                      <span className="scorer-name">
+                        {flagUrl ? <img src={flagUrl} alt="" className="scorer-flag" /> : null}
+                        <span>
+                          {scorer.name}
+                          {pickers.map((pName) => (
+                            <span className="scorer-picker-pill" key={pName}>{pName}</span>
+                          ))}
+                        </span>
+                      </span>
+                      <span className="points">{scorer.goals}</span>
+                    </div>
+                  );
+                })}
+
+                {extraScorers.length > 0 && (
+                  <>
+                    <div className="scorer-divider">Valitut haastajat</div>
+                    {extraScorers.map((scorer) => {
+                      const pickers = getPickersForScorer(scorer.name);
+                      const team = scorer.teamId ? teamById(teams, scorer.teamId) : null;
+                      const flagUrl = team?.flag;
+                      return (
+                        <div className="scorer-row extra-scorer" key={scorer.name}>
+                          <span className="rank">{scorer.rank}</span>
+                          <span className="scorer-name">
+                            {flagUrl ? <img src={flagUrl} alt="" className="scorer-flag" /> : null}
+                            <span>
+                              {scorer.name}
+                              {pickers.map((pName) => (
+                                <span className="scorer-picker-pill" key={pName}>{pName}</span>
+                              ))}
+                            </span>
+                          </span>
+                          <span className="points">{scorer.goals}</span>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            ) : (
+              <p className="subtle-note">Maalipörssitaulu täyttyy heti kun dataa tulee.</p>
+            )}
           </section>
 
 
 
-          <section className="side-card">
-            <div className="section-title"><h2>Omat bonukset</h2></div>
-            <BonusEditor current={currentName} players={players} setPlayers={setPlayers} />
-          </section>
-
-          <section className="side-card">
-            <div className="section-title"><h2>Bonus per käyttäjä</h2></div>
-            {players.map((player) => {
-              const showDetails = isBonusLocked() || player.name === currentName;
-              const filledCount = [player.bonus.champion, player.bonus.topScorer, player.bonus.surprise, player.bonus.flop].filter(Boolean).length;
-              return (
-                <div className="bonus-row" key={player.name}>
-                  <strong>{player.name}</strong>
-                  <span className="muted small">
-                    {showDetails
-                      ? [player.bonus.champion, player.bonus.topScorer, player.bonus.surprise, player.bonus.flop].filter(Boolean).join(" / ") || "Ei vielä valintoja"
-                      : filledCount > 0
-                        ? `${filledCount}/4 valintaa tehty`
-                        : "Ei vielä valintoja"}
-                  </span>
-                </div>
-              );
-            })}
-          </section>
+          <BonusBetsCard currentName={currentName} players={players} setPlayers={setPlayers} />
         </aside>
       </div>
     </main>
