@@ -1019,9 +1019,6 @@ export default function App() {
 
       {/* Mobile Header Actions */}
       <div className="mobile-header-actions">
-        <button className="mobile-jump-btn" onClick={() => document.getElementById('points-table-anchor')?.scrollIntoView({ behavior: 'smooth' })}>
-          Pistetaulukkoon <div className="arrow-circle">▼</div>
-        </button>
         {currentName ? (
           <div className="mobile-auth-logged">
             {user?.photoURL ? (
@@ -1033,6 +1030,14 @@ export default function App() {
         ) : (
           <button className="primary-btn compact" onClick={signIn}><LogIn size={14} /> Kirjaudu</button>
         )}
+        <button className="mobile-jump-btn" onClick={() => document.getElementById('points-table-anchor')?.scrollIntoView({ behavior: 'smooth' })}>
+          Pistetaulukkoon 
+          <div className="arrow-circle">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="var(--accent-green)">
+              <path d="M4 8 h16 l-8 10 z" stroke="var(--accent-green)" strokeWidth="2" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </button>
       </div>
 
       <header className="hero">

@@ -181,7 +181,6 @@ h1 {
   position: sticky;
   top: 18px;
   height: fit-content;
-  grid-row: 1 / span 2;
 }
 
 .auth-row,
@@ -1169,10 +1168,8 @@ img.avatar {
   justify-content: center;
   width: 20px;
   height: 20px;
-  background: linear-gradient(135deg, var(--accent-red), var(--accent-green));
+  background: var(--accent-red);
   border-radius: 50%;
-  color: #fff;
-  font-size: 10px;
 }
 
 .mobile-auth-logged {
@@ -1623,4 +1620,15 @@ img.avatar {
 .footer-sync {
   display: flex;
   align-items: center;
+}
+
+@media (min-width: 1321px) {
+  .main-stage {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .sidebar {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
 }
