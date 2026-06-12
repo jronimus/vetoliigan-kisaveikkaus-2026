@@ -1,4 +1,5 @@
 import { finlandClockDate, teamName, type ApiGame } from "./worldcup";
+import { TEAM_FI } from "./data";
 
 const RAW_SCHEDULE = `
 Jalkapallon MM-kisojen 2026 otteluohjelma
@@ -185,6 +186,7 @@ Finaali klo 22.00 (Yle Areena ja Yle TV2)
 
 const TEAM_ALIASES: Record<string, string> = {
   Tshekki: "Tšekki",
+  Tsekki: "Tšekki",
   Yhdysvallat: "USA",
   "Kap Verde": "Kap Verde",
   "Uusi-Seelanti": "Uusi-Seelanti",
@@ -248,8 +250,10 @@ export function tvChannelsForGame(game: ApiGame) {
     .replace(":", ".");
   const dateStr = `${kickoff.getUTCDate()}.${kickoff.getUTCMonth() + 1}.`;
 
-  const home = normalizeTeamFi(teamName(game, "home"));
-  const away = normalizeTeamFi(teamName(game, "away"));
+  const homeEn = teamName(game, "home");
+  const awayEn = teamName(game, "away");
+  const home = normalizeTeamFi(TEAM_FI[homeEn] ?? homeEn);
+  const away = normalizeTeamFi(TEAM_FI[awayEn] ?? awayEn);
 
   const exact = tvEntries.find((entry) => entry.home === home && entry.away === away && entry.time === time);
   if (exact) return exact.channels;
