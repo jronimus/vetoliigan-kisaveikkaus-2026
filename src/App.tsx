@@ -7,7 +7,7 @@ import joniLogo from "./assets/joni-logo.png";
 
 export type GameStatus = "upcoming" | "live" | "finished";
 import { auth, db, firebaseEnabled, provider } from "./firebase";
-import { LOCK_DATE_LABEL, TEAM_FI, SEEDED_PLAYERS, type BonusPicks, type PlayerName, type PlayerState, type Prediction } from "./data";
+import { TEAM_FI, SEEDED_PLAYERS, type BonusPicks, type PlayerName, type PlayerState, type Prediction } from "./data";
 import { matchPoints, standings } from "./scoring";
 import { tvChannelsForGame } from "./tvSchedule";
 import {
@@ -47,11 +47,11 @@ function allowedName(name: string) {
 
 function localPlayers() {
   const saved = localStorage.getItem("vetoliiga.players");
-  if (!saved) return SEEDED_PLAYERS;
+  if (!saved) return SEEDED_PLAYERS.map(normalizePlayerState);
   try {
-    return JSON.parse(saved) as PlayerState[];
+    return (JSON.parse(saved) as PlayerState[]).map(normalizePlayerState);
   } catch {
-    return SEEDED_PLAYERS;
+    return SEEDED_PLAYERS.map(normalizePlayerState);
   }
 }
 
@@ -61,6 +61,151 @@ function saveLocal(players: PlayerState[]) {
 
 function normalizeTeam(name: string) {
   return TEAM_FI[name] ?? name;
+}
+
+export function stripAccents(str: string): string {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+export function normalizeCountryName(name: string): string {
+  const clean = name.trim();
+  if (!clean) return "";
+
+  // Check if it's already in TEAM_FI (value)
+  const fiValues = Object.values(TEAM_FI);
+  const matchedValue = fiValues.find(v => v.toLowerCase() === clean.toLowerCase());
+  if (matchedValue) return matchedValue;
+
+  // Check if it's in TEAM_FI (key)
+  const matchedKey = Object.keys(TEAM_FI).find(k => k.toLowerCase() === clean.toLowerCase());
+  if (matchedKey) return TEAM_FI[matchedKey];
+
+  // Specific custom spelling normalization mappings (e.g. English -> Finnish, common typos/variations)
+  const cleanLower = clean.toLowerCase();
+  const customMap: Record<string, string> = {
+    "argentina": "Argentiina",
+    "argentiina": "Argentiina",
+    "brasilia": "Brasilia",
+    "brazil": "Brasilia",
+    "hollanti": "Hollanti",
+    "netherlands": "Hollanti",
+    "alankomaat": "Hollanti",
+    "englanti": "Englanti",
+    "england": "Englanti",
+    "ranska": "Ranska",
+    "france": "Ranska",
+    "saksa": "Saksa",
+    "germany": "Saksa",
+    "espanja": "Espanja",
+    "spain": "Espanja",
+    "portugali": "Portugali",
+    "portugal": "Portugali",
+    "italia": "Italia",
+    "italy": "Italia",
+    "belgia": "Belgia",
+    "belgium": "Belgia",
+    "kroatia": "Kroatia",
+    "croatia": "Kroatia",
+    "tsekki": "Tšekki",
+    "tshekki": "Tšekki",
+    "yhdysvallat": "USA",
+    "usa": "USA",
+    "united states": "USA",
+    "bosnia": "Bosnia ja Hertsegovina",
+    "bosnia ja hertsegovina": "Bosnia ja Hertsegovina",
+    "bosnia-hertsegovina": "Bosnia ja Hertsegovina",
+    "bosnia & hertsegovina": "Bosnia ja Hertsegovina",
+    "etela-afrikka": "Etelä-Afrikka",
+    "etela-korea": "Etelä-Korea",
+    "uusi seelanti": "Uusi-Seelanti",
+    "uusi-seelanti": "Uusi-Seelanti",
+    "saudi arabia": "Saudi-Arabia",
+    "saudi-arabia": "Saudi-Arabia",
+    "kongon demokraattinen tasavalta": "Kongon demokraattinen tasavalta",
+    "kongo": "Kongon demokraattinen tasavalta",
+  };
+
+  if (customMap[cleanLower]) {
+    return customMap[cleanLower];
+  }
+
+  // Capitalize first letter as fallback
+  return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
+export function normalizeScorerName(name: string): string {
+  const clean = name.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!clean) return "";
+
+  // Specific common overrides
+  if (clean === "kane" || clean === "harry kane" || clean === "h kane") {
+    return "H. Kane";
+  }
+  if (clean === "mbappe" || clean === "mbappe " || clean === "mbappé" || clean === "kylian mbappe" || clean === "kylian mbappé") {
+    return "K. Mbappé";
+  }
+  if (clean === "haaland" || clean === "erling haaland") {
+    return "E. Haaland";
+  }
+  if (clean === "messi" || clean === "lionel messi") {
+    return "L. Messi";
+  }
+  if (clean === "ronaldo" || clean === "cristiano ronaldo") {
+    return "C. Ronaldo";
+  }
+  if (clean === "bellingham" || clean === "jude bellingham") {
+    return "J. Bellingham";
+  }
+  if (clean === "vinicius" || clean === "vinicius jr" || clean === "vinicius junior" || clean === "vini jr") {
+    return "Vinícius Jr.";
+  }
+
+  // General case: "First Last" -> "F. Last"
+  const parts = clean.split(" ");
+  if (parts.length > 1) {
+    const first = parts[0];
+    const last = parts.slice(1).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+    return `${first.charAt(0).toUpperCase()}. ${last}`;
+  }
+
+  // Single word: "name" -> "Name"
+  return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
+export function scorerNamesMatch(picked: string, apiName: string): boolean {
+  const normPicked = stripAccents(normalizeScorerName(picked)).toLowerCase();
+  const normApi = stripAccents(normalizeScorerName(apiName)).toLowerCase();
+
+  if (normPicked === normApi) return true;
+
+  const pickedParts = normPicked.split(" ");
+  const apiParts = normApi.split(" ");
+  const pickedLast = pickedParts[pickedParts.length - 1];
+  const apiLast = apiParts[apiParts.length - 1];
+
+  if (pickedLast && apiLast && pickedLast === apiLast) {
+    const pickedInitial = pickedParts.length > 1 && pickedParts[0].endsWith(".") ? pickedParts[0].slice(0, 1) : null;
+    const apiInitial = apiParts.length > 1 && apiParts[0].endsWith(".") ? apiParts[0].slice(0, 1) : null;
+
+    if (pickedInitial && apiInitial && pickedInitial !== apiInitial) {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+export function normalizePlayerState(p: PlayerState): PlayerState {
+  return {
+    ...p,
+    bonus: {
+      champion: normalizeCountryName(p.bonus?.champion || ""),
+      topScorer: normalizeScorerName(p.bonus?.topScorer || ""),
+      surprise: normalizeCountryName(p.bonus?.surprise || ""),
+      flop: normalizeCountryName(p.bonus?.flop || ""),
+    }
+  };
 }
 
 function teamById(teams: ApiTeam[], id: string) {
@@ -653,7 +798,6 @@ function BonusBetsCard({
     <section className="side-card">
       <div className="section-title-stacked">
         <h2>Bonusveikkaukset</h2>
-        <span className="deadline-badge">Sulkeutuu {LOCK_DATE_LABEL.replace(" Suomen aikaa", "")}</span>
       </div>
 
       <div className="bonus-bets-list">
@@ -744,19 +888,19 @@ function BonusBetsCard({
                   <div className="bonus-picks-details">
                     <div className="bonus-pick-detail-item">
                       <span className="label">Mestari:</span>
-                      <span className="val">{p.bonus.champion || "—"}</span>
+                      <span className="val">{normalizeCountryName(p.bonus.champion) || "—"}</span>
                     </div>
                     <div className="bonus-pick-detail-item">
                       <span className="label">Maalikuningas:</span>
-                      <span className="val">{p.bonus.topScorer || "—"}</span>
+                      <span className="val">{normalizeScorerName(p.bonus.topScorer) || "—"}</span>
                     </div>
                     <div className="bonus-pick-detail-item">
                       <span className="label">Yllättäjä:</span>
-                      <span className="val">{p.bonus.surprise || "—"}</span>
+                      <span className="val">{normalizeCountryName(p.bonus.surprise) || "—"}</span>
                     </div>
                     <div className="bonus-pick-detail-item">
                       <span className="label">Floppi:</span>
-                      <span className="val">{p.bonus.flop || "—"}</span>
+                      <span className="val">{normalizeCountryName(p.bonus.flop) || "—"}</span>
                     </div>
                   </div>
                 )
@@ -917,8 +1061,9 @@ export default function App() {
         }
       }),
     ).then((next) => {
-      setPlayers(next);
-      saveLocal(next);
+      const normalized = next.map(normalizePlayerState);
+      setPlayers(normalized);
+      saveLocal(normalized);
       if (hasFetchError) {
         setSyncStatus({ status: "error", message: fetchErrorMessage });
       } else {
@@ -946,7 +1091,7 @@ export default function App() {
   const pickedTopScorers = useMemo(() => {
     const set = new Set<string>();
     players.forEach(p => {
-      const name = p.bonus.topScorer?.trim();
+      const name = normalizeScorerName(p.bonus.topScorer);
       if (name) set.add(name);
     });
     return [...set];
@@ -959,10 +1104,10 @@ export default function App() {
     const list: Array<{ name: string; goals: number; rank: string | number; teamId?: string }> = [];
 
     pickedTopScorers.forEach((pickedName) => {
-      const inTop10 = topScorers.some(s => s.name.toLowerCase() === pickedName.toLowerCase());
+      const inTop10 = topScorers.some(s => scorerNamesMatch(pickedName, s.name));
       if (inTop10) return;
 
-      const scoredScorer = scorers.find(s => s.name.toLowerCase() === pickedName.toLowerCase());
+      const scoredScorer = scorers.find(s => scorerNamesMatch(pickedName, s.name));
       if (scoredScorer) {
         list.push({
           name: scoredScorer.name,
@@ -986,7 +1131,7 @@ export default function App() {
   const getPickersForScorer = (scorerName: string) => {
     if (!isBonusLocked()) return [];
     return players
-      .filter((p) => p.bonus.topScorer?.trim().toLowerCase() === scorerName.toLowerCase())
+      .filter((p) => scorerNamesMatch(p.bonus.topScorer, scorerName))
       .map((p) => p.name);
   };
 
@@ -1177,7 +1322,6 @@ export default function App() {
             </div>
             
             <div className="section-title" style={{ marginTop: "24px" }}><h2>Bonusveikkaukset</h2></div>
-            <div className="bonus-timing">Lukitaan: {LOCK_DATE_LABEL}</div>
             <div className="rule-list">
               <div className="rule-item"><span className="badge hot">20</span><div><strong>Oikea maailmanmestari</strong></div></div>
               <div className="rule-item"><span className="badge">10</span><div><strong>Turnauksen maalikuningas</strong></div></div>
