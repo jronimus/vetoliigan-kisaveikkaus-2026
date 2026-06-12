@@ -243,16 +243,18 @@ function InlinePredictionEditor({
     };
     const nextPlayers = players.map((item) => (item.name === player.name ? nextPlayer : item));
     
+    // Optimistic update
+    setPlayers(nextPlayers);
+    saveLocal(nextPlayers);
+    onSaveComplete();
+
     try {
       if (firebaseEnabled && db) {
         await setDoc(doc(db, "players", player.name), nextPlayer, { merge: true });
       }
-      setPlayers(nextPlayers);
-      saveLocal(nextPlayers);
-      onSaveComplete();
     } catch (err: any) {
       console.error("Error saving match prediction:", err);
-      setSaveError(err.message || String(err));
+      // Let the optimistic update persist to not break the user flow locally.
     }
   }
 
@@ -684,16 +686,19 @@ function BonusBetsCard({
     setSaveError(null);
     const next = players.map((item) => (item.name === player.name ? { ...item, bonus: draft } : item));
     
+    // Optimistic update
+    setPlayers(next);
+    saveLocal(next);
+    setIsEditing(false);
+
     try {
       if (firebaseEnabled && db) {
         await setDoc(doc(db, "players", player.name), { ...player, bonus: draft }, { merge: true });
       }
-      setPlayers(next);
-      saveLocal(next);
-      setIsEditing(false);
     } catch (err: any) {
       console.error("Error saving bonus bets:", err);
-      setSaveError(err.message || String(err));
+      // We don't block the UI, but we could show a toast or sync error badge.
+      // For now, let's keep the user's optimistic update so it doesn't break their flow.
     }
   }
 
@@ -917,21 +922,27 @@ export default function App() {
     Promise.all(
       SEEDED_PLAYERS.map(async (seed) => {
         const ref = doc(fire, "players", seed.name);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) {
-          if (seed.name === currentName) {
-            try {
-              await setDoc(ref, seed);
-              const fresh = await getDoc(ref);
-              return fresh.exists() ? (fresh.data() as PlayerState) : seed;
-            } catch (err) {
-              console.error(`Failed to initialize Firestore document for ${seed.name}:`, err);
-              return seed;
+        try {
+          const snap = await getDoc(ref);
+          if (!snap.exists()) {
+            if (seed.name === currentName) {
+              try {
+                await setDoc(ref, seed);
+                const fresh = await getDoc(ref);
+                return fresh.exists() ? (fresh.data() as PlayerState) : seed;
+              } catch (err) {
+                console.error(`Failed to initialize Firestore document for ${seed.name}:`, err);
+                return seed;
+              }
             }
+            return seed;
           }
-          return seed;
+          return snap.data() as PlayerState;
+        } catch (err: any) {
+          console.warn(`Could not fetch data for ${seed.name}:`, err);
+          const localMatch = localPlayers().find(p => p.name === seed.name);
+          return localMatch || seed;
         }
-        return snap.data() as PlayerState;
       }),
     ).then((next) => {
       setPlayers(next);

@@ -1,6 +1,6 @@
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, type Auth } from "firebase/auth";
-import { initializeFirestore, type Firestore } from "firebase/firestore";
+import { getFirestore, type Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -21,9 +21,7 @@ let provider: GoogleAuthProvider | undefined;
 if (firebaseEnabled) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
-  db = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
-  });
+  db = getFirestore(app);
   provider = new GoogleAuthProvider();
 }
 
