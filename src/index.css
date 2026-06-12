@@ -318,7 +318,7 @@ img.avatar {
 
 .days-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* force exactly 1 row on desktop */
   gap: 14px;
   align-items: flex-start;
   width: 100%;
@@ -385,13 +385,13 @@ img.avatar {
 
 .match-card-shadow-red {
   background: var(--accent-red);
-  transform: translateY(6px);
+  transform: translate(6px, 6px); /* offset down and to the right */
   z-index: 1; /* directly under card */
 }
 
 .match-card-shadow-green {
   background: var(--accent-green);
-  transform: translateY(12px);
+  transform: translate(12px, 12px); /* offset down and to the right */
   z-index: 0; /* below red */
 }
 
@@ -1173,6 +1173,11 @@ img.avatar {
 
   .top-ribbon {
     font-size: 13px;
+  }
+
+  .venue-name.marquee {
+    animation: none !important;
+    transform: none !important;
   }
 
   .channel-pill {

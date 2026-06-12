@@ -510,33 +510,28 @@ function MatchSections({
   const visibleRecentDays = allRecentDays.slice(0, visibleDaysCount);
   const hasMoreRecentDays = allRecentDays.length > visibleDaysCount;
 
-  // Split each visible day's games into chunks of max 5 games
-  const recentChunks: Array<{ label: string; games: ApiGame[] }> = [];
-  visibleRecentDays.forEach(([label, dayGames]) => {
-    for (let i = 0; i < dayGames.length; i += 5) {
-      recentChunks.push({
-        label,
-        games: dayGames.slice(i, i + 5),
-      });
-    }
-  });
-
-  // Pack chunks into rows of max 5 games total
+  // Pack recent games into rows of exactly 5 games (splitting days if necessary, repeating label)
   const rows: Array<Array<{ label: string; games: ApiGame[] }>> = [];
   let currentRow: Array<{ label: string; games: ApiGame[] }> = [];
   let currentGamesCount = 0;
 
-  for (const chunk of recentChunks) {
-    const chunkGamesCount = chunk.games.length;
-    if (currentGamesCount + chunkGamesCount > 5 && currentRow.length > 0) {
-      rows.push(currentRow);
-      currentRow = [chunk];
-      currentGamesCount = chunkGamesCount;
-    } else {
-      currentRow.push(chunk);
-      currentGamesCount += chunkGamesCount;
+  visibleRecentDays.forEach(([label, dayGames]) => {
+    let remainingGames = [...dayGames];
+    while (remainingGames.length > 0) {
+      const spaceLeft = 5 - currentGamesCount;
+      if (spaceLeft === 0) {
+        rows.push(currentRow);
+        currentRow = [];
+        currentGamesCount = 0;
+      }
+      const takeCount = Math.min(spaceLeft || 5, remainingGames.length);
+      const chunk = remainingGames.slice(0, takeCount);
+      remainingGames = remainingGames.slice(takeCount);
+
+      currentRow.push({ label, games: chunk });
+      currentGamesCount += takeCount;
     }
-  }
+  });
   if (currentRow.length > 0) {
     rows.push(currentRow);
   }
@@ -550,33 +545,28 @@ function MatchSections({
 
   const allOlderDays = [...olderGroupedByDate.entries()];
 
-  // Split each older day's games into chunks of max 5 games
-  const olderChunks: Array<{ label: string; games: ApiGame[] }> = [];
-  allOlderDays.forEach(([label, dayGames]) => {
-    for (let i = 0; i < dayGames.length; i += 5) {
-      olderChunks.push({
-        label,
-        games: dayGames.slice(i, i + 5),
-      });
-    }
-  });
-
-  // Pack chunks into rows of max 5 games total
+  // Pack older games into rows of exactly 5 games (splitting days if necessary, repeating label)
   const olderRows: Array<Array<{ label: string; games: ApiGame[] }>> = [];
   let currentOlderRow: Array<{ label: string; games: ApiGame[] }> = [];
   let currentOlderGamesCount = 0;
 
-  for (const chunk of olderChunks) {
-    const chunkGamesCount = chunk.games.length;
-    if (currentOlderGamesCount + chunkGamesCount > 5 && currentOlderRow.length > 0) {
-      olderRows.push(currentOlderRow);
-      currentOlderRow = [chunk];
-      currentOlderGamesCount = chunkGamesCount;
-    } else {
-      currentOlderRow.push(chunk);
-      currentOlderGamesCount += chunkGamesCount;
+  allOlderDays.forEach(([label, dayGames]) => {
+    let remainingGames = [...dayGames];
+    while (remainingGames.length > 0) {
+      const spaceLeft = 5 - currentOlderGamesCount;
+      if (spaceLeft === 0) {
+        olderRows.push(currentOlderRow);
+        currentOlderRow = [];
+        currentOlderGamesCount = 0;
+      }
+      const takeCount = Math.min(spaceLeft || 5, remainingGames.length);
+      const chunk = remainingGames.slice(0, takeCount);
+      remainingGames = remainingGames.slice(takeCount);
+
+      currentOlderRow.push({ label, games: chunk });
+      currentOlderGamesCount += takeCount;
     }
-  }
+  });
   if (currentOlderRow.length > 0) {
     olderRows.push(currentOlderRow);
   }
