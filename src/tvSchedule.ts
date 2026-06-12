@@ -190,6 +190,7 @@ const TEAM_ALIASES: Record<string, string> = {
   Yhdysvallat: "USA",
   "Kap Verde": "Kap Verde",
   "Uusi-Seelanti": "Uusi-Seelanti",
+  Curaçao: "Curacao",
 };
 
 type TvEntry = { dateStr?: string; home?: string; away?: string; type?: string; time: string; channels: string[] };
@@ -217,8 +218,8 @@ for (let line of RAW_SCHEDULE.split("\n")) {
     continue;
   }
 
-  // Ecuador–Saksa klo 23.00 OR Haiti – Skotlanti 04.00
-  let m = line.match(/^(.*?)\s*[–-]\s*(.*?)\s+(?:klo\s+)?(\d{1,2}\.\d{2})\s+\((.*?)\)$/);
+  // Updated match pattern to split on space-surrounded hyphen OR en-dash
+  let m = line.match(/^(.*?)\s*(?:\s+-\s+|–)\s*(.*?)\s+(?:klo\s+)?(\d{1,2}\.\d{2})\s+\((.*?)\)$/);
   if (m) {
     tvEntries.push({
       dateStr: currentDate,
@@ -242,25 +243,28 @@ for (let line of RAW_SCHEDULE.split("\n")) {
 }
 
 export function tvChannelsForGame(game: ApiGame) {
-  const kickoff = finlandClockDate(game);
-  if (!kickoff) return [];
-
-  const time = new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })
-    .format(kickoff)
-    .replace(":", ".");
-  const dateStr = `${kickoff.getUTCDate()}.${kickoff.getUTCMonth() + 1}.`;
-
   const homeEn = teamName(game, "home");
   const awayEn = teamName(game, "away");
   const home = normalizeTeamFi(TEAM_FI[homeEn] ?? homeEn);
   const away = normalizeTeamFi(TEAM_FI[awayEn] ?? awayEn);
 
-  const exact = tvEntries.find((entry) => entry.home === home && entry.away === away && entry.time === time);
-  if (exact) return exact.channels;
-
-  if (game.type !== "group") {
-    const playoff = tvEntries.find((entry) => entry.type && entry.dateStr === dateStr && entry.time === time);
-    if (playoff) return playoff.channels;
+  if (game.type === "group") {
+    const match = tvEntries.find(
+      (entry) =>
+        (entry.home === home && entry.away === away) ||
+        (entry.home === away && entry.away === home)
+    );
+    if (match) return match.channels;
+  } else {
+    const kickoff = finlandClockDate(game);
+    if (kickoff) {
+      const time = new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })
+        .format(kickoff)
+        .replace(":", ".");
+      const dateStr = `${kickoff.getUTCDate()}.${kickoff.getUTCMonth() + 1}.`;
+      const playoff = tvEntries.find((entry) => entry.type && entry.dateStr === dateStr && entry.time === time);
+      if (playoff) return playoff.channels;
+    }
   }
 
   return [];

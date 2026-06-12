@@ -334,8 +334,9 @@ img.avatar {
 
 .days-row-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 320px));
-  justify-content: start;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  justify-content: center;
+  justify-items: center;
   gap: 16px;
   width: 100%;
   margin: 0 auto;
@@ -370,8 +371,9 @@ img.avatar {
 
 .match-card-wrapper {
   position: relative;
-  width: 280px;
-  min-width: 280px;
+  width: 100%;
+  max-width: 320px;
+  min-width: 260px;
   box-sizing: border-box;
   margin-bottom: 0;
   overflow: visible;
@@ -1241,7 +1243,7 @@ img.avatar {
   }
 
   .match-card-wrapper {
-    width: 280px !important;
+    max-width: 320px !important;
   }
 }
 
