@@ -554,6 +554,8 @@ export async function fetchYleFallback(allEnglishNames: string[]): Promise<YlePa
 export function overlayYleMatches(games: ApiGame[], teams: ApiTeam[], yleMatches: YleParsedMatch[]): ApiGame[] {
   if (!yleMatches || yleMatches.length === 0) return games;
 
+  const allEnglishNames = teams.map((t) => t.name_en);
+
   return games.map((game) => {
     const homeTeam = teams.find((t) => t.id === game.home_team_id);
     const awayTeam = teams.find((t) => t.id === game.away_team_id);
@@ -564,7 +566,11 @@ export function overlayYleMatches(games: ApiGame[], teams: ApiTeam[], yleMatches
     const normAway = normalizeTeamName(awayEn);
 
     const yleMatch = yleMatches.find((ym) => {
-      return normalizeTeamName(ym.home_team) === normHome && normalizeTeamName(ym.away_team) === normAway;
+      const ymHomeEn = getTeamEnName(ym.home_team, allEnglishNames) ?? ym.home_team;
+      const ymAwayEn = getTeamEnName(ym.away_team, allEnglishNames) ?? ym.away_team;
+      const normYleHome = normalizeTeamName(ymHomeEn);
+      const normYleAway = normalizeTeamName(ymAwayEn);
+      return normYleHome === normHome && normYleAway === normAway;
     });
 
     if (yleMatch) {
@@ -595,6 +601,13 @@ export function overlayYleMatches(games: ApiGame[], teams: ApiTeam[], yleMatches
 export function getScoreBadgeText(game: ApiGame): string {
   if (isFinished(game)) {
     return "FULL-TIME";
+  }
+
+  const homeGoals = parseScore(game.home_score);
+  const awayGoals = parseScore(game.away_score);
+  const scored = parseScorers(game.home_scorers).length > 0 || parseScorers(game.away_scorers).length > 0;
+  if (isLive(game) && homeGoals === 0 && awayGoals === 0 && !scored) {
+    return "EI SYNKATTU";
   }
 
   const elapsed = String(game.time_elapsed).toLowerCase().trim();
