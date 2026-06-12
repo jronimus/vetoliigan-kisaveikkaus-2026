@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { LogIn, LogOut, RotateCcw, Trophy } from "lucide-react";
+import { LogIn, LogOut, Trophy } from "lucide-react";
 import clsx from "clsx";
 import { auth, db, firebaseEnabled, provider } from "./firebase";
 import { LOCK_DATE_LABEL, TEAM_FI, SEEDED_PLAYERS, type BonusPicks, type PlayerName, type PlayerState, type Prediction } from "./data";
@@ -437,56 +437,87 @@ function MatchSections({
   setPlayers: (players: PlayerState[]) => void;
 }) {
   const visibleGames = games;
+  const [visibleDaysCount, setVisibleDaysCount] = useState(7);
 
   const recentGames = currentFirst(visibleGames.filter((game) => !archivedMatch(game)));
   const olderGames = recentFirst(visibleGames.filter((game) => archivedMatch(game)));
 
-  const groupedByDate = new Map<string, ApiGame[]>();
+  // Group recent games by date label
+  const recentGroupedByDate = new Map<string, ApiGame[]>();
   recentGames.forEach((game) => {
     const key = dateLabel(game);
-    groupedByDate.set(key, [...(groupedByDate.get(key) ?? []), game]);
+    recentGroupedByDate.set(key, [...(recentGroupedByDate.get(key) ?? []), game]);
   });
 
-  const days = [...groupedByDate.entries()];
-  const rows: Array<Array<[string, ApiGame[]]>> = [];
-  let currentRow: Array<[string, ApiGame[]]> = [];
+  const allRecentDays = [...recentGroupedByDate.entries()];
+  const visibleRecentDays = allRecentDays.slice(0, visibleDaysCount);
+  const hasMoreRecentDays = allRecentDays.length > visibleDaysCount;
+
+  // Split each visible day's games into chunks of max 5 games
+  const recentChunks: Array<{ label: string; games: ApiGame[] }> = [];
+  visibleRecentDays.forEach(([label, dayGames]) => {
+    for (let i = 0; i < dayGames.length; i += 5) {
+      recentChunks.push({
+        label,
+        games: dayGames.slice(i, i + 5),
+      });
+    }
+  });
+
+  // Pack chunks into rows of max 5 games total
+  const rows: Array<Array<{ label: string; games: ApiGame[] }>> = [];
+  let currentRow: Array<{ label: string; games: ApiGame[] }> = [];
   let currentGamesCount = 0;
 
-  for (const day of days) {
-    const gamesInDay = day[1].length;
-    if (currentGamesCount + gamesInDay > 5 && currentRow.length > 0) {
+  for (const chunk of recentChunks) {
+    const chunkGamesCount = chunk.games.length;
+    if (currentGamesCount + chunkGamesCount > 5 && currentRow.length > 0) {
       rows.push(currentRow);
-      currentRow = [day];
-      currentGamesCount = gamesInDay;
+      currentRow = [chunk];
+      currentGamesCount = chunkGamesCount;
     } else {
-      currentRow.push(day);
-      currentGamesCount += gamesInDay;
+      currentRow.push(chunk);
+      currentGamesCount += chunkGamesCount;
     }
   }
   if (currentRow.length > 0) {
     rows.push(currentRow);
   }
 
+  // Group older games by date label
   const olderGroupedByDate = new Map<string, ApiGame[]>();
   olderGames.forEach((game) => {
     const key = dateLabel(game);
     olderGroupedByDate.set(key, [...(olderGroupedByDate.get(key) ?? []), game]);
   });
 
-  const olderDays = [...olderGroupedByDate.entries()];
-  const olderRows: Array<Array<[string, ApiGame[]]>> = [];
-  let currentOlderRow: Array<[string, ApiGame[]]> = [];
+  const allOlderDays = [...olderGroupedByDate.entries()];
+
+  // Split each older day's games into chunks of max 5 games
+  const olderChunks: Array<{ label: string; games: ApiGame[] }> = [];
+  allOlderDays.forEach(([label, dayGames]) => {
+    for (let i = 0; i < dayGames.length; i += 5) {
+      olderChunks.push({
+        label,
+        games: dayGames.slice(i, i + 5),
+      });
+    }
+  });
+
+  // Pack chunks into rows of max 5 games total
+  const olderRows: Array<Array<{ label: string; games: ApiGame[] }>> = [];
+  let currentOlderRow: Array<{ label: string; games: ApiGame[] }> = [];
   let currentOlderGamesCount = 0;
 
-  for (const day of olderDays) {
-    const gamesInDay = day[1].length;
-    if (currentOlderGamesCount + gamesInDay > 5 && currentOlderRow.length > 0) {
+  for (const chunk of olderChunks) {
+    const chunkGamesCount = chunk.games.length;
+    if (currentOlderGamesCount + chunkGamesCount > 5 && currentOlderRow.length > 0) {
       olderRows.push(currentOlderRow);
-      currentOlderRow = [day];
-      currentOlderGamesCount = gamesInDay;
+      currentOlderRow = [chunk];
+      currentOlderGamesCount = chunkGamesCount;
     } else {
-      currentOlderRow.push(day);
-      currentOlderGamesCount += gamesInDay;
+      currentOlderRow.push(chunk);
+      currentOlderGamesCount += chunkGamesCount;
     }
   }
   if (currentOlderRow.length > 0) {
@@ -497,11 +528,11 @@ function MatchSections({
     <div className="section-stack-rows">
       {rows.map((row, rowIndex) => (
         <div className="days-row" key={`recent-row-${rowIndex}`}>
-          {row.map(([label, labelGames]) => (
-            <section className="day-section compact-day" key={label}>
-              <div className="day-heading">{label}</div>
-              <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${labelGames.length}, minmax(0, 250px))` }}>
-                {labelGames.map((game) => (
+          {row.map((chunk, chunkIndex) => (
+            <section className="day-section compact-day" key={`${chunk.label}-${chunkIndex}`}>
+              <div className="day-heading">{chunk.label}</div>
+              <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${chunk.games.length}, minmax(0, 250px))` }}>
+                {chunk.games.map((game) => (
                   <MatchCard
                     game={game}
                     teams={teams}
@@ -518,17 +549,25 @@ function MatchSections({
         </div>
       ))}
 
+      {hasMoreRecentDays && (
+        <div className="show-more-row">
+          <button className="primary-btn show-more-btn" onClick={() => setVisibleDaysCount((prev) => prev + 7)}>
+            Näytä lisää
+          </button>
+        </div>
+      )}
+
       {olderRows.length ? (
         <div className="older-games-section">
           <div className="older-heading">Aikaisemmat ottelut</div>
           <div className="section-stack-rows">
             {olderRows.map((row, rowIndex) => (
               <div className="days-row" key={`older-row-${rowIndex}`}>
-                {row.map(([label, labelGames]) => (
-                  <section className="day-section compact-day" key={label}>
-                    <div className="day-heading">{label}</div>
-                    <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${labelGames.length}, minmax(0, 250px))` }}>
-                      {labelGames.map((game) => (
+                {row.map((chunk, chunkIndex) => (
+                  <section className="day-section compact-day" key={`${chunk.label}-${chunkIndex}`}>
+                    <div className="day-heading">{chunk.label}</div>
+                    <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${chunk.games.length}, minmax(0, 250px))` }}>
+                      {chunk.games.map((game) => (
                         <MatchCard
                           game={game}
                           teams={teams}
@@ -752,10 +791,29 @@ export default function App() {
           <button className={clsx("nav-link", { active: mainView === "matches" })} onClick={() => setMainView("matches")}>Ottelut</button>
           <button className={clsx("nav-link", { active: mainView === "tables" })} onClick={() => setMainView("tables")}>Taulukot</button>
         </nav>
-        <button className="icon-btn" title="Päivitä nyt" onClick={loadCup}><RotateCcw size={18} /></button>
       </div>
 
       <div className="layout">
+        <section className="side-card auth-card mobile-only-auth">
+          <div className="auth-row">
+            <div className="user-pill">
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="" className="avatar avatar-img" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="avatar">{(currentName ?? "?").slice(0, 1)}</span>
+              )}
+              <div>
+                <strong>{currentName ?? "Vierailija"}</strong>
+              </div>
+            </div>
+            {currentName ? (
+              <button className="icon-btn" title="Kirjaudu ulos" onClick={signOutUser}><LogOut size={18} /></button>
+            ) : (
+              <button className="primary-btn" onClick={signIn}><LogIn size={16} /> Kirjaudu</button>
+            )}
+          </div>
+        </section>
+
         <section className="main-stage">
           {mainView === "matches" ? (
             <MatchSections
@@ -795,7 +853,7 @@ export default function App() {
         </section>
 
         <aside className="sidebar">
-          <section className="side-card auth-card">
+          <section className="side-card auth-card desktop-only-auth">
             <div className="auth-row">
               <div className="user-pill">
                 {user?.photoURL ? (
