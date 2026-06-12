@@ -24,10 +24,11 @@ html, body, #root { min-height: 100%; }
 body {
   margin: 0;
   min-width: 320px;
-  background:
-    radial-gradient(circle at 30% 10%, rgba(255, 43, 23, 0.18), transparent 22%),
-    radial-gradient(circle at 85% 18%, rgba(29, 86, 235, 0.12), transparent 20%),
-    linear-gradient(180deg, #080808 0%, #111 100%);
+  background-image: url("/bg.jpg");
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% auto;
   color: var(--text);
 }
 
@@ -44,15 +45,7 @@ button { cursor: pointer; }
 }
 
 .arena-backdrop {
-  position: absolute;
-  inset: 0;
-  opacity: 0.3;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 50%, transparent 0, transparent 30%, rgba(255, 255, 255, 0.05) 30.2%, transparent 30.6%),
-    radial-gradient(circle at 50% 50%, transparent 0, transparent 47%, rgba(255, 255, 255, 0.05) 47.2%, transparent 47.6%),
-    linear-gradient(90deg, transparent 24.8%, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.05) 25.2%, transparent 25.4%, transparent 74.8%, rgba(255, 255, 255, 0.05) 75%, rgba(255, 255, 255, 0.05) 75.2%, transparent 75.4%),
-    linear-gradient(180deg, transparent 24.8%, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.05) 25.2%, transparent 25.4%, transparent 74.8%, rgba(255, 255, 255, 0.05) 75%, rgba(255, 255, 255, 0.05) 75.2%, transparent 75.4%);
+  display: none;
 }
 
 .hero, .primary-nav, .layout { position: relative; z-index: 1; }
@@ -154,11 +147,6 @@ h1 {
 .group-card,
 .day-section,
 .auth-card { padding: 16px; }
-
-.main-stage {
-  width: fit-content;
-  max-width: 100%;
-}
 
 .layout {
   display: grid;
@@ -328,6 +316,8 @@ img.avatar {
   grid-template-columns: repeat(5, 280px);
   gap: 20px;
   width: fit-content;
+  padding-right: 12px;
+  padding-bottom: 12px;
 }
 
 .older-games-section {
@@ -1204,6 +1194,8 @@ img.avatar {
     grid-template-columns: 1fr !important;
     width: 100%;
     gap: 14px;
+    padding: 0 16px 16px;
+    box-sizing: border-box;
   }
 
   .match-day-header {

@@ -914,6 +914,7 @@ export default function App() {
   const topScorers = useMemo(() => scorers.slice(0, 10), [scorers]);
 
   const extraScorers = useMemo(() => {
+    if (!isBonusLocked()) return [];
     const list: Array<{ name: string; goals: number; rank: string | number; teamId?: string }> = [];
 
     pickedTopScorers.forEach((pickedName) => {
