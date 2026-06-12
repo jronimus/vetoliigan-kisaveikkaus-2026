@@ -25,6 +25,7 @@ import {
   saveCachedWorldCup,
   scorerTable,
   teamName,
+  getScoreBadgeText,
   type ApiGame,
   type ApiStadium,
   type ApiTeam,
@@ -382,8 +383,9 @@ function MatchCard({
             </div>
 
             {isFinished(game) || isLive(game) ? (
-              <div className={clsx("inline-score-block", { "live-game": isLive(game) })}>
-                <div className="inline-score-wrap">
+              <div className={clsx("inline-score-block new-style", { "live-game": isLive(game) })}>
+                <div className="inline-score-badge">{getScoreBadgeText(game)}</div>
+                <div className="inline-score-box">
                   <span className="inline-score-val">{parseScore(game.home_score)}</span>
                   <span className="inline-score-colon">:</span>
                   <span className="inline-score-val">{parseScore(game.away_score)}</span>

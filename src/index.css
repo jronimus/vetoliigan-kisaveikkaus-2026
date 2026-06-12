@@ -359,6 +359,8 @@ img.avatar {
   position: relative;
   width: 280px;
   box-sizing: border-box;
+  margin-right: 12px;
+  margin-bottom: 16px;
 }
 
 .match-card {
@@ -638,22 +640,67 @@ img.avatar {
   color: var(--accent-yellow);
 }
 
-.inline-score-wrap {
+.inline-score-block.new-style {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 90px;
+  position: relative;
+  z-index: 5;
+}
+
+.inline-score-badge {
+  background-color: #d2f53c; /* vibrant neon yellow/lime */
+  color: #000;
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1px 10px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  text-transform: uppercase;
+  line-height: 1.2;
+  z-index: 2;
+  box-shadow: 0 -2px 4px rgba(0,0,0,0.15);
+}
+
+.inline-score-box {
+  background: #000000;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 3px 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
+  min-width: 80px;
+  height: 40px;
+  box-sizing: border-box;
+  margin-top: -1px; /* overlap with badge border */
+  z-index: 1;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.inline-score-block.new-style.live-game .inline-score-box {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 8px rgba(10, 210, 63, 0.25);
+}
+
+.inline-score-box .inline-score-val {
   font-family: "Bebas Neue", Impact, sans-serif;
-  font-size: 34px;
+  font-size: 30px;
+  color: #ffffff;
   line-height: 1;
 }
 
-.inline-score-val {
-  color: #fff;
-}
-
-.inline-score-colon {
-  color: var(--accent-yellow);
+.inline-score-box .inline-score-colon {
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 30px;
+  color: #ffffff;
+  line-height: 1;
+  opacity: 0.9;
 }
 
 .scorer-strip-fixed {
@@ -1161,6 +1208,8 @@ img.avatar {
 
   .match-card-wrapper {
     width: 100% !important;
+    margin-right: 0 !important;
+    margin-bottom: 20px !important;
   }
 
   .inline-name {
