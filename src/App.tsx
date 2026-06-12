@@ -133,7 +133,10 @@ function kickoffMillis(game: ApiGame) {
 function cityCountry(stadiums: ApiStadium[], game: ApiGame) {
   const stadium = stadiumById(stadiums, game.stadium_id);
   if (!stadium) return "";
-  return `${stadium.city_en}, ${normalizeTeam(stadium.country_en)}`;
+  let location = `${stadium.city_en}, ${normalizeTeam(stadium.country_en)}`;
+  location = location.replace(/\s*\([^)]*\)/g, "");
+  location = location.replace(/Yhdysvallat/gi, "USA");
+  return location;
 }
 
 function currentFirst(games: ApiGame[]) {
@@ -371,7 +374,6 @@ function MatchCard({
   }, [awayScorers]);
 
   const kickoffStatus = getKickoffStatus(game, now);
-  const isLongVenue = (infoLabel || "").length > 42;
 
   const homeLong = normalizeTeam(home).length > 13;
   const awayLong = normalizeTeam(away).length > 13;
@@ -388,7 +390,7 @@ function MatchCard({
         </div>
 
         <div className="top-ribbon">
-          <span className={clsx("venue-name", { marquee: isLongVenue })}>{infoLabel || "Kisapaikka"}</span>
+          <span className="venue-name">{infoLabel || "Kisapaikka"}</span>
           {channels.length ? (
             <span className="channel-pills">
               {channels.map((channel) => <span className={clsx("channel-pill", channelClass(channel))} key={channel}>{channel}</span>)}
@@ -1015,8 +1017,11 @@ export default function App() {
       <main className="app-shell">
       <div className="arena-backdrop" />
 
-      {/* Mobile Header Auth (visible only on mobile in top right) */}
-      <div className="mobile-header-auth">
+      {/* Mobile Header Actions */}
+      <div className="mobile-header-actions">
+        <button className="mobile-jump-btn" onClick={() => document.getElementById('points-table-anchor')?.scrollIntoView({ behavior: 'smooth' })}>
+          Pistetaulukkoon <div className="arrow-circle">▼</div>
+        </button>
         {currentName ? (
           <div className="mobile-auth-logged">
             {user?.photoURL ? (
@@ -1059,32 +1064,10 @@ export default function App() {
             <GroupTables games={games} teams={teams} />
           )}
 
-          <section className="rules-grid">
-            <div className="rules-panel">
-              <div className="section-title"><h2>Pisteytys</h2></div>
-              <div className="rule-list">
-                <div className="rule-item"><span className="badge">5</span><div><strong>Täysin oikea tulos</strong><span className="muted">Esim. 2-1 ja peli päättyy 2-1.</span></div></div>
-                <div className="rule-item"><span className="badge">3</span><div><strong>Oikea maaliero ja merkki</strong><span className="muted">Esim. 3-1 ja peli päättyy 2-0.</span></div></div>
-                <div className="rule-item"><span className="badge">2</span><div><strong>Oikea merkki, väärä maaliero</strong><span className="muted">Esim. 1-0 ja peli päättyy 3-1.</span></div></div>
-                <div className="rule-item"><span className="badge">2</span><div><strong>Tasapeli oikein, väärät maalit</strong><span className="muted">Esim. 1-1 ja peli päättyy 2-2.</span></div></div>
-                <div className="rule-item"><span className="badge">1</span><div><strong>Toisen joukkueen maalimäärä oikein, tulos väärin</strong><span className="muted">Esim. veikkaus 2-0 ja peli päättyy 2-3.</span></div></div>
-              </div>
-            </div>
-
-            <div className="rules-panel">
-              <div className="section-title"><h2>Bonusveikkaukset</h2></div>
-              <div className="bonus-timing">Lukitaan: {LOCK_DATE_LABEL}</div>
-              <div className="rule-list">
-                <div className="rule-item"><span className="badge hot">20</span><div><strong>Oikea maailmanmestari</strong></div></div>
-                <div className="rule-item"><span className="badge">10</span><div><strong>Turnauksen maalikuningas</strong></div></div>
-                <div className="rule-item"><span className="badge">10</span><div><strong>Kisojen yllättäjä</strong></div></div>
-                <div className="rule-item"><span className="badge">10</span><div><strong>Kisojen floppi</strong></div></div>
-              </div>
-            </div>
-          </section>
         </section>
 
         <aside className="sidebar">
+          <div id="points-table-anchor" style={{ position: "relative", top: "-60px" }}></div>
           <section className="side-card auth-card desktop-only-auth">
             <div className="auth-row">
               <div className="user-pill">
@@ -1176,6 +1159,28 @@ export default function App() {
 
           <BonusBetsCard currentName={currentName} players={players} setPlayers={setPlayers} />
         </aside>
+
+        <section className="rules-section">
+          <div className="rules-panel">
+            <div className="section-title"><h2>Pisteytys</h2></div>
+            <div className="rule-list">
+              <div className="rule-item"><span className="badge">5</span><div><strong>Täysin oikea tulos</strong><span className="muted">Esim. 2-1 ja peli päättyy 2-1.</span></div></div>
+              <div className="rule-item"><span className="badge">3</span><div><strong>Oikea maaliero ja merkki</strong><span className="muted">Esim. 3-1 ja peli päättyy 2-0.</span></div></div>
+              <div className="rule-item"><span className="badge">2</span><div><strong>Oikea merkki, väärä maaliero</strong><span className="muted">Esim. 1-0 ja peli päättyy 3-1.</span></div></div>
+              <div className="rule-item"><span className="badge">2</span><div><strong>Tasapeli oikein, väärät maalit</strong><span className="muted">Esim. 1-1 ja peli päättyy 2-2.</span></div></div>
+              <div className="rule-item"><span className="badge">1</span><div><strong>Toisen joukkueen maalimäärä oikein, tulos väärin</strong><span className="muted">Esim. veikkaus 2-0 ja peli päättyy 2-3.</span></div></div>
+            </div>
+            
+            <div className="section-title" style={{ marginTop: "24px" }}><h2>Bonusveikkaukset</h2></div>
+            <div className="bonus-timing">Lukitaan: {LOCK_DATE_LABEL}</div>
+            <div className="rule-list">
+              <div className="rule-item"><span className="badge hot">20</span><div><strong>Oikea maailmanmestari</strong></div></div>
+              <div className="rule-item"><span className="badge">10</span><div><strong>Turnauksen maalikuningas</strong></div></div>
+              <div className="rule-item"><span className="badge">10</span><div><strong>Kisojen yllättäjä</strong></div></div>
+              <div className="rule-item"><span className="badge">10</span><div><strong>Kisojen floppi</strong></div></div>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
 
