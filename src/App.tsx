@@ -361,6 +361,7 @@ function MatchCard({
       <article className="match-card">
         <div className="match-badges">
           <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
+          {game.fallback_source === "yle" ? <span className="sync-pill">EI SYNKATTU</span> : null}
           <span className="group-tag">{stageLabel(game)}</span>
         </div>
 
@@ -580,7 +581,7 @@ function MatchSections({
           {row.map((chunk, chunkIndex) => (
             <section className="day-section compact-day" key={`${chunk.label}-${chunkIndex}`}>
               <div className="day-heading">{chunk.label}</div>
-              <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${chunk.games.length}, minmax(0, 280px))` }}>
+              <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(300px, 1fr))` }}>
                 {chunk.games.map((game) => (
                   <MatchCard
                     game={game}
@@ -615,7 +616,7 @@ function MatchSections({
                 {row.map((chunk, chunkIndex) => (
                   <section className="day-section compact-day" key={`${chunk.label}-${chunkIndex}`}>
                     <div className="day-heading">{chunk.label}</div>
-                    <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${chunk.games.length}, minmax(0, 280px))` }}>
+                    <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(300px, 1fr))` }}>
                       {chunk.games.map((game) => (
                         <MatchCard
                           game={game}

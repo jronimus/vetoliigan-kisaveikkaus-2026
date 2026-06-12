@@ -38,8 +38,8 @@ button { cursor: pointer; }
   position: relative;
   overflow: hidden;
   min-height: 100vh;
-  padding: 18px 18px 48px;
-  max-width: 1920px;
+  padding: 18px 32px 48px;
+  max-width: 2200px;
   margin: 0 auto;
 }
 
@@ -351,16 +351,19 @@ img.avatar {
 
 .match-grid.compact-grid {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  justify-items: center;
+  gap: 40px;
   width: 100%;
 }
 
 .match-card-wrapper {
   position: relative;
   width: 280px;
+  min-width: 280px;
   box-sizing: border-box;
-  margin-right: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 28px;
+  overflow: visible;
 }
 
 .match-card {
@@ -387,13 +390,13 @@ img.avatar {
 
 .match-card-shadow-red {
   background: var(--accent-red);
-  transform: translate(6px, 6px); /* offset down and to the right */
+  transform: translate(4px, 4px); /* offset down and to the right */
   z-index: 1; /* directly under card */
 }
 
 .match-card-shadow-green {
   background: var(--accent-green);
-  transform: translate(12px, 12px); /* offset down and to the right */
+  transform: translate(8px, 8px); /* offset down and to the right */
   z-index: 0; /* below red */
 }
 
@@ -415,6 +418,20 @@ img.avatar {
   background: var(--accent-green);
   color: #000;
   animation: pulse-calm 2s infinite ease-in-out;
+}
+
+.sync-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  margin-left: 8px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .match-status.upcoming {

@@ -19,6 +19,7 @@ export type ApiGame = {
   home_team_id: string;
   away_team_id: string;
   stadium_id: string;
+  fallback_source?: string;
 };
 
 export type ApiTeam = {
@@ -504,7 +505,7 @@ export async function fetchYleFallback(allEnglishNames: string[]): Promise<YlePa
           away_score: awayScore,
           home_scorers: [],
           away_scorers: [],
-          finished: scorePart.includes("("),
+          finished: !scorePart.includes("("),
         };
         parsedMatches.push(currentMatch);
       } else if (currentMatch) {
@@ -582,13 +583,9 @@ export function overlayYleMatches(games: ApiGame[], teams: ApiTeam[], yleMatches
           home_scorers: yleMatch.home_scorers.length > 0 ? `{${yleMatch.home_scorers.join(", ")}}` : "null",
           away_scorers: yleMatch.away_scorers.length > 0 ? `{${yleMatch.away_scorers.join(", ")}}` : "null",
           finished: yleMatch.finished ? "TRUE" : "FALSE",
+          fallback_source: "yle",
+          time_elapsed: yleMatch.finished ? "finished" : "live",
         };
-
-        if (yleMatch.finished) {
-          updatedGame.time_elapsed = "finished";
-        } else {
-          updatedGame.time_elapsed = "live";
-        }
 
         return updatedGame;
       }
