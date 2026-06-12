@@ -71,7 +71,7 @@ export const TEAM_FI: Record<string, string> = {
   Brazil: "Brasilia",
   Morocco: "Marokko",
   Germany: "Saksa",
-  Netherlands: "Alankomaat",
+  Netherlands: "Hollanti",
   Japan: "Japani",
   Spain: "Espanja",
   France: "Ranska",

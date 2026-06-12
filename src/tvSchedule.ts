@@ -1,7 +1,8 @@
 import { finlandClockDate, teamName, type ApiGame } from "./worldcup";
-import { TEAM_FI } from "./data";
 
 const RAW_SCHEDULE = `
+Jalkapallon MM-kisojen 2026 otteluohjelma
+Alkulohko
 Torstai 11.6.
 Meksiko – Etelä-Afrikka klo 22.00 (MTV Katsomo+ Urheilu ja MTV3)
 
@@ -110,24 +111,86 @@ Kongon demokraattinen tasavalta – Uzbekistan klo 02.30 (MTV Katsomo+ Urheilu)
 Algeria – Itävalta klo 05.00  (Yle Areena ja Yle TV2)
 Jordania – Argentiina klo 05.00  (Yle Areena ja Yle TV2)
 
+1. pudotuspelikierros
+Sunnuntai 28.6.
+Ottelu klo 22.00 (Yle Areena ja Yle TV2)
+
+Maanantai 29.6.
+Ottelu klo 20.00 (MTV Katsomo+ Urheilu ja MTV3)
+Ottelu klo 23.30 (MTV Katsomo+ Urheilu ja MTV3)
+
+Tiistai 30.6.
+Ottelu klo 04.00 (Yle Areena ja Yle TV2)
+Ottelu klo 20.00 (Yle Areena ja Yle TV2)
+
+Keskiviikko 1.7.
+Ottelu klo 00.00 (Yle Areena ja Yle TV2)
+Ottelu klo 04.00 (Yle Areena ja Yle TV2)
+Ottelu klo 19.00 (MTV Katsomo+ Urheilu ja MTV3)
+Ottelu klo 23.00 (MTV Katsomo+ Urheilu ja MTV3)
+
+Torstai 2.7.
+Ottelu klo 03.00 (MTV Katsomo+ Urheilu)
+Ottelu klo 22.00 (Yle Areena ja Yle TV2)
+
+Perjantai 3.7.
+Ottelu klo 02.00 (Yle Areena ja Yle TV2)
+Ottelu klo 06.00 (Yle Areena ja Yle TV2)
+Ottelu klo 21.00 (MTV Katsomo+ Urheilu ja MTV3)
+
+Lauantai 4.7.
+Ottelu klo 01.00 (MTV Katsomo+ Urheilu ja MTV3)
+Ottelu klo 04.30 (MTV Katsomo+ Urheilu)
+
+Neljännesvälierät
+Lauantai 4.7.
+Ottelu klo 20.00 (MTV Katsomo+ Urheilu ja MTV3)
+
+Sunnuntai 5.7.
+Ottelu klo 00.00 (MTV Katsomo+ Urheilu ja MTV3)
+Ottelu klo 23.00 (Yle Areena ja Yle TV2)
+
+Maanantai 6.7.
+Ottelu klo 03.00 (Yle Areena ja Yle TV2)
+Ottelu klo 22.00 (MTV Katsomo+ Urheilu ja MTV3)
+
+Tiistai 7.7
+Ottelu klo 03.00 (MTV Katsomo+ Urheilu ja MTV3)
+Ottelu klo 19.00 (Yle Areena ja Yle TV2)
+Ottelu klo 23.00 (Yle Areena ja Yle TV2)
+
+Puolivälierät
+Torstai 9.7.
+Ottelu klo 23.00 (Yle Areena ja Yle TV2)
+
+Perjantai 10.7.
+Ottelu klo 22.00 (MTV Katsomo+ Urheilu ja MTV3)
+
+Sunnuntai 12.7.
+Ottelu klo 00.00 (Yle Areena ja Yle TV2)
+Ottelu klo 04.00 (MTV Katsomo+ Urheilu ja MTV3)
+
+Välierät
+Tiistai 14.7.
+Ottelu klo 22.00 (Yle Areena ja Yle TV2)
+
+Keskiviikko 15.7.
+Ottelu klo 22.00 (MTV Katsomo+ Urheilu ja MTV3)
+
+Mitalipelit
 Sunnuntai 19.7.
 Pronssiottelu klo 00.00 (MTV Katsomo+ Urheilu ja MTV3)
 Finaali klo 22.00 (Yle Areena ja Yle TV2)
 `;
 
 const TEAM_ALIASES: Record<string, string> = {
-  ...TEAM_FI,
-  Tshekki: "Tsekki",
-  "Tšekki": "Tsekki",
-  "Bosnia ja Hertsegovina": "Bosnia ja Hertsegovina",
-  "Kongon demokraattinen tasavalta": "Kongon demokraattinen tasavalta",
-  "Norsunluurannikko": "Norsunluurannikko",
-  Curaçao: "Curaçao",
+  Tshekki: "Tšekki",
+  Yhdysvallat: "USA",
   "Kap Verde": "Kap Verde",
   "Uusi-Seelanti": "Uusi-Seelanti",
 };
 
-type TvEntry = { home: string; away: string; time: string; channels: string[] };
+type TvEntry = { dateStr?: string; home?: string; away?: string; type?: string; time: string; channels: string[] };
 
 function normalize(text: string) {
   return text.replace(/\s+/g, " ").replace(/[.]/g, "").trim();
@@ -137,38 +200,63 @@ function normalizeTeamFi(name: string) {
   return TEAM_ALIASES[name] ?? name;
 }
 
-const tvEntries: TvEntry[] = RAW_SCHEDULE
-  .split("\n")
-  .map((line) => line.trim())
-  .filter((line) => line.includes("(") && line.includes(")") && line.includes("–"))
-  .map((line) => {
-    const match = line.match(/^(.*?)\s+–\s+(.*?)\s+(?:klo\s+)?(\d{1,2}\.\d{2})\s+\((.*?)\)$/);
-    if (!match) return null;
-    const [, home, away, time, channels] = match;
-    return {
-      home: normalizeTeamFi(normalize(home)),
-      away: normalizeTeamFi(normalize(away)),
-      time,
-      channels: channels.split(/\s+ja\s+/).map((item) => normalize(item)),
-    };
-  })
-  .filter((item): item is TvEntry => Boolean(item));
+const tvEntries: TvEntry[] = [];
+let currentDate = "";
+
+for (let line of RAW_SCHEDULE.split("\n")) {
+  line = line.trim();
+  if (!line) continue;
+
+  const dateMatch = line.match(/^[a-zäöå]+\s+(\d{1,2}\.\d{1,2}\.?)$/i);
+  if (dateMatch) {
+    let d = dateMatch[1];
+    if (!d.endsWith(".")) d += ".";
+    currentDate = d;
+    continue;
+  }
+
+  // Ecuador–Saksa klo 23.00 OR Haiti – Skotlanti 04.00
+  let m = line.match(/^(.*?)\s*[–-]\s*(.*?)\s+(?:klo\s+)?(\d{1,2}\.\d{2})\s+\((.*?)\)$/);
+  if (m) {
+    tvEntries.push({
+      dateStr: currentDate,
+      home: normalizeTeamFi(normalize(m[1])),
+      away: normalizeTeamFi(normalize(m[2])),
+      time: m[3],
+      channels: m[4].split(/\s+ja\s+/).map((item) => normalize(item)),
+    });
+    continue;
+  }
+
+  m = line.match(/^(Ottelu|Pronssiottelu|Finaali)\s+(?:klo\s+)?(\d{1,2}\.\d{2})\s+\((.*?)\)$/i);
+  if (m) {
+    tvEntries.push({
+      dateStr: currentDate,
+      type: m[1],
+      time: m[2],
+      channels: m[3].split(/\s+ja\s+/).map((item) => normalize(item)),
+    });
+  }
+}
 
 export function tvChannelsForGame(game: ApiGame) {
   const kickoff = finlandClockDate(game);
-  const time = kickoff
-    ? new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }).format(kickoff).replace(":", ".")
-    : "";
+  if (!kickoff) return [];
+
+  const time = new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })
+    .format(kickoff)
+    .replace(":", ".");
+  const dateStr = `${kickoff.getUTCDate()}.${kickoff.getUTCMonth() + 1}.`;
+
   const home = normalizeTeamFi(teamName(game, "home"));
   const away = normalizeTeamFi(teamName(game, "away"));
 
   const exact = tvEntries.find((entry) => entry.home === home && entry.away === away && entry.time === time);
   if (exact) return exact.channels;
 
-  if (game.type === "final") {
-    const finalEntry = tvEntries.find((entry) => entry.home === "Pronssiottelu");
-    const properFinal = tvEntries.find((entry) => entry.home === "Finaali" || entry.away === "Finaali");
-    return properFinal?.channels ?? finalEntry?.channels ?? [];
+  if (game.type !== "group") {
+    const playoff = tvEntries.find((entry) => entry.type && entry.dateStr === dateStr && entry.time === time);
+    if (playoff) return playoff.channels;
   }
 
   return [];
