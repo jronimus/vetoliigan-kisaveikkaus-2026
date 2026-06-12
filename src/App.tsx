@@ -254,7 +254,7 @@ function InlinePredictionEditor({
       }
     } catch (err: any) {
       console.error("Error saving match prediction:", err);
-      // Let the optimistic update persist to not break the user flow locally.
+      setSaveError(err.message || String(err));
     }
   }
 
@@ -697,8 +697,7 @@ function BonusBetsCard({
       }
     } catch (err: any) {
       console.error("Error saving bonus bets:", err);
-      // We don't block the UI, but we could show a toast or sync error badge.
-      // For now, let's keep the user's optimistic update so it doesn't break their flow.
+      setSaveError(err.message || String(err));
     }
   }
 
@@ -919,6 +918,10 @@ export default function App() {
     }
     const fire = db;
     setSyncStatus({ status: "loading" });
+    
+    let hasFetchError = false;
+    let fetchErrorMessage = "";
+
     Promise.all(
       SEEDED_PLAYERS.map(async (seed) => {
         const ref = doc(fire, "players", seed.name);
@@ -930,8 +933,10 @@ export default function App() {
                 await setDoc(ref, seed);
                 const fresh = await getDoc(ref);
                 return fresh.exists() ? (fresh.data() as PlayerState) : seed;
-              } catch (err) {
+              } catch (err: any) {
                 console.error(`Failed to initialize Firestore document for ${seed.name}:`, err);
+                hasFetchError = true;
+                fetchErrorMessage = err.message || String(err);
                 return seed;
               }
             }
@@ -940,6 +945,8 @@ export default function App() {
           return snap.data() as PlayerState;
         } catch (err: any) {
           console.warn(`Could not fetch data for ${seed.name}:`, err);
+          hasFetchError = true;
+          fetchErrorMessage = err.message || String(err);
           const localMatch = localPlayers().find(p => p.name === seed.name);
           return localMatch || seed;
         }
@@ -947,7 +954,11 @@ export default function App() {
     ).then((next) => {
       setPlayers(next);
       saveLocal(next);
-      setSyncStatus({ status: "success" });
+      if (hasFetchError) {
+        setSyncStatus({ status: "error", message: fetchErrorMessage });
+      } else {
+        setSyncStatus({ status: "success" });
+      }
     }).catch((err: any) => {
       console.error("Error syncing players from Firestore:", err);
       setSyncStatus({ status: "error", message: err.message || String(err) });
