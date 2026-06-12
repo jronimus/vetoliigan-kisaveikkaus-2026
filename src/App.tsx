@@ -581,7 +581,7 @@ function MatchSections({
           {row.map((chunk, chunkIndex) => (
             <section className="day-section compact-day" key={`${chunk.label}-${chunkIndex}`}>
               <div className="day-heading">{chunk.label}</div>
-              <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(300px, 1fr))` }}>
+              <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${chunk.games.length}, minmax(0, 280px))` }}>
                 {chunk.games.map((game) => (
                   <MatchCard
                     game={game}
@@ -616,7 +616,7 @@ function MatchSections({
                 {row.map((chunk, chunkIndex) => (
                   <section className="day-section compact-day" key={`${chunk.label}-${chunkIndex}`}>
                     <div className="day-heading">{chunk.label}</div>
-                    <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(300px, 1fr))` }}>
+                    <div className="match-grid compact-grid" style={{ gridTemplateColumns: `repeat(${chunk.games.length}, minmax(0, 280px))` }}>
                       {chunk.games.map((game) => (
                         <MatchCard
                           game={game}

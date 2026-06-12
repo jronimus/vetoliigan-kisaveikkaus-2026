@@ -430,6 +430,18 @@ export type YleParsedMatch = {
   finished: boolean;
 };
 
+type YleRun = {
+  fg?: string;
+  bg?: string;
+  length?: string;
+  Text?: string;
+};
+
+type YleTeletextStructuredLine = {
+  number?: string;
+  run?: YleRun | YleRun[];
+};
+
 type YleTeletextLine = {
   number?: string;
   Text?: string;
@@ -437,7 +449,7 @@ type YleTeletextLine = {
 
 type YleTeletextContentItem = {
   type?: string;
-  line?: YleTeletextLine[];
+  line?: (YleTeletextLine | YleTeletextStructuredLine)[];
 };
 
 type YleTeletextSubpage = {
@@ -452,105 +464,140 @@ type YleTeletextResponse = {
   };
 };
 
+function getStructuredRuns(line: YleTeletextStructuredLine): YleRun[] {
+  if (!line.run) return [];
+  return Array.isArray(line.run) ? line.run : [line.run];
+}
+
+function parseYleTeletextJson(json: YleTeletextResponse, allEnglishNames: string[]): YleParsedMatch[] {
+  const subpage = json?.teletext?.page?.subpage?.[0];
+  if (!subpage?.content) return [];
+
+  // Use structured content which has fg color information
+  const structuredContent = subpage.content.find((c) => c.type === "structured");
+  if (!structuredContent?.line) return [];
+
+  // Build per-line objects: { text: string, scoreColor: 'green'|'cyan'|null, runs: YleRun[] }
+  type ParsedLine = { text: string; scoreColor: string | null; runs: YleRun[] };
+  const lineMap = new Map<number, ParsedLine>();
+
+  for (const rawLine of structuredContent.line as YleTeletextStructuredLine[]) {
+    const lineNum = rawLine.number ? parseInt(rawLine.number, 10) : NaN;
+    if (Number.isNaN(lineNum) || lineNum < 1 || lineNum > 24) continue;
+
+    const runs = getStructuredRuns(rawLine);
+    let fullText = "";
+    let scoreColor: string | null = null;
+
+    for (const run of runs) {
+      const t = run.Text || "";
+      fullText += t;
+      // Detect score color — the run containing "X-Y" with a color tells us live vs finished
+      if (run.fg && (run.fg === "green" || run.fg === "cyan") && /\d+-\d+/.test(t)) {
+        scoreColor = run.fg;
+      }
+    }
+
+    lineMap.set(lineNum, { text: fullText.padEnd(40, " "), scoreColor, runs });
+  }
+
+  const parsedMatches: YleParsedMatch[] = [];
+  let currentMatch: YleParsedMatch | null = null;
+
+  // Match header: " Meksiko       - Etelä-Afrikka 2-0 (1-0)"
+  // Team names may have hyphens (Bosnia-Hertsegovina), so we match greedily up to " - "
+  const matchHeaderRegex = /^\s*(.+?)\s+-\s+(.+?)\s+(\d+-\d+(?:\s+\(\d+-\d+\))?)\s*$/;
+  const scorerRegex = /^([^#0-9]+?)\s+(#\s*)?(\d+(?:\+\d+)?)\s*$/;
+
+  for (let i = 1; i <= 24; i++) {
+    const entry = lineMap.get(i);
+    if (!entry) continue;
+    const { text: line, scoreColor } = entry;
+
+    const match = line.match(matchHeaderRegex);
+    if (match && scoreColor) {
+      // Only treat as a match line if there's a color on the score (not a plain "lohko" header etc.)
+      const homeFi = match[1].trim();
+      const awayFi = match[2].trim();
+      const scorePart = match[3].trim();
+
+      const scoreMatch = scorePart.match(/^(\d+)-(\d+)/);
+      const homeScore = scoreMatch ? scoreMatch[1] : "";
+      const awayScore = scoreMatch ? scoreMatch[2] : "";
+
+      const homeEn = getTeamEnName(homeFi, allEnglishNames) || homeFi;
+      const awayEn = getTeamEnName(awayFi, allEnglishNames) || awayFi;
+
+      // green = full-time, cyan = live/in-progress
+      const finished = scoreColor === "green";
+
+      currentMatch = {
+        home_team: homeEn,
+        away_team: awayEn,
+        home_score: homeScore,
+        away_score: awayScore,
+        home_scorers: [],
+        away_scorers: [],
+        finished,
+      };
+      parsedMatches.push(currentMatch);
+    } else if (currentMatch) {
+      const trimmed = line.trim();
+      // Stop collecting scorers when we hit an empty line followed by another section,
+      // or time info, or a new section header
+      if (!trimmed) continue;
+      if (trimmed.includes("klo ") || trimmed.toLowerCase().includes("lohko") || trimmed.includes("MM-JALKAPALLO")) {
+        currentMatch = null;
+        continue;
+      }
+      // If this line has a score color, it's a new match header — handled in next iteration
+      if (scoreColor) continue;
+
+      // Column 17 splits home (left) from away (right) scorers — consistent Teletext layout
+      const leftPart = line.slice(0, 17).trim();
+      const rightPart = line.slice(17).trim();
+
+      if (leftPart) {
+        const m = leftPart.match(scorerRegex);
+        if (m && !m[2]) currentMatch.home_scorers.push(`${m[1].trim()} ${m[3]}'`);
+      }
+      if (rightPart) {
+        const m = rightPart.match(scorerRegex);
+        if (m && !m[2]) currentMatch.away_scorers.push(`${m[1].trim()} ${m[3]}'`);
+      }
+    }
+  }
+
+  return parsedMatches;
+}
+
+
+const YLE_API_URL = `https://external.api.yle.fi/v1/teletext/pages/601.json?app_id=7aab0368abac138f49f840118ff44f59&app_key=42a40fda`;
+
 export async function fetchYleFallback(allEnglishNames: string[]): Promise<YleParsedMatch[]> {
+  // Try Cloudflare Worker proxy first (avoids CORS)
   try {
     const workerBase = API.replace(/\/get\/?$/, "");
     const yleProxyUrl = `${workerBase}/yle-proxy`;
-
     const json = await fetchJson<YleTeletextResponse>(yleProxyUrl, { cache: "no-store" });
-    const subpage = json?.teletext?.page?.subpage?.[0];
-    if (!subpage?.content) return [];
+    const results = parseYleTeletextJson(json, allEnglishNames);
+    if (results.length > 0) return results;
+  } catch {
+    // Worker not available or failed — fall through to corsproxy
+  }
 
-    const lines: string[] = [];
-    for (const contentItem of subpage.content) {
-      if (contentItem.type === "text" && Array.isArray(contentItem.line)) {
-        for (const l of contentItem.line) {
-          const lineNum = l?.number ? parseInt(l.number, 10) : NaN;
-          if (Number.isNaN(lineNum) || lineNum < 1 || lineNum > 24) continue;
-
-          let text = l.Text || "";
-          text = text.padEnd(40, " ");
-          lines[lineNum - 1] = text;
-        }
-      }
-    }
-
-    const parsedMatches: YleParsedMatch[] = [];
-    let currentMatch: YleParsedMatch | null = null;
-
-    const matchHeaderRegex = /^\s*([A-Za-zåäöÅÄÖ\s-]+?)\s+-\s+([A-Za-zåäöÅÄÖ\s-]+?)\s+(\d+-\d+(?:\s+\(\d+-\d+\))?)\s*$/;
-    const scorerRegex = /^([^#0-9]+?)\s+(#\s*)?(\d+(?:\+\d+)?)\s*$/;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) continue;
-
-      const match = line.match(matchHeaderRegex);
-      if (match) {
-        const homeFi = match[1].trim();
-        const awayFi = match[2].trim();
-        const scorePart = match[3].trim();
-
-        const scoreMatch = scorePart.match(/^(\d+)-(\d+)/);
-        const homeScore = scoreMatch ? scoreMatch[1] : "";
-        const awayScore = scoreMatch ? scoreMatch[2] : "";
-
-        const homeEn = getTeamEnName(homeFi, allEnglishNames) || homeFi;
-        const awayEn = getTeamEnName(awayFi, allEnglishNames) || awayFi;
-
-        currentMatch = {
-          home_team: homeEn,
-          away_team: awayEn,
-          home_score: homeScore,
-          away_score: awayScore,
-          home_scorers: [],
-          away_scorers: [],
-          finished: !scorePart.includes("("),
-        };
-        parsedMatches.push(currentMatch);
-      } else if (currentMatch) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.includes(" - ") || trimmed.includes("klo ") || trimmed.includes("lohko") || trimmed.includes("MM-JALKAPALLO")) {
-          if (trimmed.includes("klo ") || trimmed.includes("lohko")) {
-            currentMatch = null;
-          }
-          continue;
-        }
-
-        const leftPart = line.slice(0, 17).trim();
-        const rightPart = line.slice(17).trim();
-
-        if (leftPart) {
-          const homeMatch = leftPart.match(scorerRegex);
-          if (homeMatch) {
-            const name = homeMatch[1].trim();
-            const isRed = !!homeMatch[2];
-            const min = homeMatch[3];
-            if (!isRed) {
-              currentMatch.home_scorers.push(`${name} ${min}'`);
-            }
-          }
-        }
-        if (rightPart) {
-          const awayMatch = rightPart.match(scorerRegex);
-          if (awayMatch) {
-            const name = awayMatch[1].trim();
-            const isRed = !!awayMatch[2];
-            const min = awayMatch[3];
-            if (!isRed) {
-              currentMatch.away_scorers.push(`${name} ${min}'`);
-            }
-          }
-        }
-      }
-    }
-
-    return parsedMatches;
+  // Fallback: corsproxy.io as public CORS proxy (no auth needed, Yle API keys are public)
+  try {
+    const corsUrl = `https://corsproxy.io/?${encodeURIComponent(YLE_API_URL)}`;
+    const json = await fetchJson<YleTeletextResponse>(corsUrl, { cache: "no-store" });
+    return parseYleTeletextJson(json, allEnglishNames);
   } catch (err) {
     console.warn("Failed to fetch/parse Yle Teletext fallback:", err);
     return [];
   }
 }
+
+
 
 export function overlayYleMatches(games: ApiGame[], teams: ApiTeam[], yleMatches: YleParsedMatch[]): ApiGame[] {
   if (!yleMatches || yleMatches.length === 0) return games;
