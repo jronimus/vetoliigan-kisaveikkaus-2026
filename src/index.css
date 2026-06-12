@@ -155,6 +155,11 @@ h1 {
 .day-section,
 .auth-card { padding: 16px; }
 
+.main-stage {
+  width: fit-content;
+  max-width: 100%;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
@@ -318,10 +323,10 @@ img.avatar {
 
 .days-row {
   display: flex;
-  flex-wrap: nowrap; /* force exactly 1 row on desktop */
+  flex-wrap: nowrap;
   gap: 14px;
   align-items: flex-start;
-  width: 100%;
+  width: fit-content;
 }
 
 .older-games-section {
@@ -340,7 +345,7 @@ img.avatar {
 .day-section.compact-day {
   width: fit-content;
   max-width: 100%;
-  padding: 12px;
+  padding: 14px 24px 24px 16px;
 }
 
 .day-heading {
@@ -351,10 +356,9 @@ img.avatar {
 
 .match-grid.compact-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   justify-items: center;
-  gap: 40px;
-  width: 100%;
+  gap: 20px;
+  width: fit-content;
 }
 
 .match-card-wrapper {
@@ -362,7 +366,7 @@ img.avatar {
   width: 280px;
   min-width: 280px;
   box-sizing: border-box;
-  margin-bottom: 28px;
+  margin-bottom: 0;
   overflow: visible;
 }
 
@@ -1121,6 +1125,10 @@ img.avatar {
     grid-template-columns: 1fr;
   }
 
+  .main-stage {
+    width: 100%;
+  }
+
   .sidebar {
     position: static;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1183,6 +1191,7 @@ img.avatar {
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
+    width: 100% !important;
   }
 
   .side-card,
