@@ -333,9 +333,10 @@ img.avatar {
 
 .days-row-grid {
   display: grid;
-  grid-template-columns: repeat(5, 280px);
+  grid-template-columns: repeat(auto-fit, 280px);
+  justify-content: center;
   gap: 16px;
-  width: fit-content;
+  width: 100%;
   margin: 0 auto;
   padding-bottom: 12px;
 }
