@@ -62,7 +62,7 @@ button { cursor: pointer; }
 .hero, .primary-nav, .layout { position: relative; z-index: 1; }
 
 .hero {
-  max-width: 1940px;
+  max-width: 1980px;
   width: 100%;
   margin: 0 auto 12px;
 }
@@ -121,7 +121,7 @@ h1 {
   justify-content: space-between;
   align-items: center;
   margin: 0 auto 14px;
-  max-width: 1940px;
+  max-width: 1980px;
   width: 100%;
 }
 
@@ -170,7 +170,7 @@ h1 {
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 16px;
   align-items: start;
-  max-width: 1940px;
+  max-width: 1980px;
   width: 100%;
   margin: 0 auto;
 }
@@ -334,13 +334,14 @@ img.avatar {
 
 .days-row-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   justify-content: center;
   justify-items: center;
   gap: 16px;
   width: 100%;
   margin: 0 auto;
-  padding-bottom: 12px;
+  padding: 0 12px 12px;
+  box-sizing: border-box;
 }
 
 .older-games-section {
@@ -373,7 +374,7 @@ img.avatar {
   position: relative;
   width: 100%;
   max-width: 320px;
-  min-width: 260px;
+  min-width: 250px;
   box-sizing: border-box;
   margin-bottom: 0;
   overflow: visible;
