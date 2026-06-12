@@ -295,7 +295,7 @@ export function predictionLocked(game: ApiGame) {
   if (isFinished(game) || isLive(game)) return true;
   const kickoff = finlandClockDate(game);
   if (!kickoff) return false;
-  return currentFinlandClockMillis() >= kickoff.getTime() - 60 * 1000;
+  return currentFinlandClockMillis() >= kickoff.getTime();
 }
 
 export function archivedMatch(game: ApiGame) {
@@ -307,14 +307,25 @@ export function archivedMatch(game: ApiGame) {
 }
 
 export function scorerTable(games: ApiGame[]) {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, { goals: number; teamId: string }>();
   games.forEach((game) => {
-    [...parseScorers(game.home_scorers), ...parseScorers(game.away_scorers)].forEach((name) => {
-      counts.set(name, (counts.get(name) ?? 0) + 1);
+    parseScorers(game.home_scorers).forEach((name) => {
+      const current = counts.get(name);
+      counts.set(name, {
+        goals: (current?.goals ?? 0) + 1,
+        teamId: game.home_team_id,
+      });
+    });
+    parseScorers(game.away_scorers).forEach((name) => {
+      const current = counts.get(name);
+      counts.set(name, {
+        goals: (current?.goals ?? 0) + 1,
+        teamId: game.away_team_id,
+      });
     });
   });
   return [...counts.entries()]
-    .map(([name, goals]) => ({ name, goals }))
+    .map(([name, { goals, teamId }]) => ({ name, goals, teamId }))
     .sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
 }
 

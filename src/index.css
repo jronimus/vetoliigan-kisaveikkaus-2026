@@ -39,6 +39,8 @@ button { cursor: pointer; }
   overflow: hidden;
   min-height: 100vh;
   padding: 18px 18px 48px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 .arena-backdrop {
@@ -194,6 +196,11 @@ h1 {
   background: linear-gradient(135deg, var(--accent-red), var(--accent-yellow));
   color: #080808;
   font-weight: 700;
+}
+
+img.avatar {
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 .subtle-note, .muted { color: var(--muted); }
@@ -380,12 +387,29 @@ h1 {
   min-height: 28px;
   padding: 0 11px;
   border-radius: 10px;
-  background: var(--accent-yellow);
-  color: #111;
   font-size: 14px;
 }
 
-.match-status.live { background: var(--accent-cyan); }
+.match-status.finished {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--muted);
+}
+
+.match-status.live {
+  background: var(--accent-green);
+  color: #000;
+  animation: pulse-calm 2s infinite ease-in-out;
+}
+
+.match-status.upcoming {
+  background: #ffffff;
+  color: #111111;
+}
+
+@keyframes pulse-calm {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
 
 .group-tag {
   display: inline-flex;
@@ -400,23 +424,29 @@ h1 {
 }
 
 .top-ribbon {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  justify-items: center;
-  gap: 5px;
-  min-height: 38px;
+  height: 52px;
   margin-top: 10px;
-  padding: 0 12px;
+  padding: 4px 8px;
   border-radius: 14px 14px 0 0;
   background: #f3f2ee;
   color: #111;
-  font-size: 15px;
+  font-size: 14px;
   letter-spacing: 0.03em;
   text-align: center;
+  box-sizing: border-box;
 }
 
 .venue-name {
   line-height: 1.05;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
 .channel-pills {
@@ -438,6 +468,16 @@ h1 {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0;
+}
+
+.channel-pill.yle {
+  background: #00b2a9;
+  color: #fff;
+}
+
+.channel-pill.mtv {
+  background: #e2001a;
+  color: #fff;
 }
 
 .match-stage {
@@ -469,8 +509,8 @@ h1 {
 }
 
 .inline-flag {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   object-fit: cover;
   background: #f7f7f7;
@@ -479,8 +519,8 @@ h1 {
 
 .inline-name {
   font-family: "Bebas Neue", Impact, sans-serif;
-  font-size: 18px;
-  line-height: 1.0;
+  font-size: 15px;
+  line-height: 1.1;
   letter-spacing: 0.02em;
   hyphens: auto;
   word-break: break-word;
@@ -641,10 +681,28 @@ h1 {
   font-weight: 700;
 }
 
-.table-name, .scorer-name {
+.table-name {
   flex: 1;
   min-width: 0;
   font-weight: 700;
+}
+
+.scorer-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+}
+
+.scorer-flag {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
 }
 
 .group-grid,

@@ -14,7 +14,6 @@ import {
   archivedMatch,
   fetchWorldCup,
   finlandClockDate,
-  finnishKickoff,
   isBonusLocked,
   isFinished,
   isLive,
@@ -28,7 +27,6 @@ import {
   type ApiGame,
   type ApiStadium,
   type ApiTeam,
-  type WorldCupState,
 } from "./worldcup";
 
 type MainView = "matches" | "tables";
@@ -85,25 +83,60 @@ function stageLabel(game: ApiGame) {
 
 
 
-function statusLabel(game: ApiGame) {
-  if (isFinished(game)) return "Päättynyt";
-  if (isLive(game)) return "Livenä";
-  return "Tulossa";
-}
+const WEEKDAYS_FI = ["Sunnuntai", "Maanantai", "Tiistai", "Keskiviikko", "Torstai", "Perjantai", "Lauantai"];
 
-function kickoffMillis(game: ApiGame) {
-  return finlandClockDate(game)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+function getKickoffStatus(game: ApiGame) {
+  if (isFinished(game)) return { text: "Päättynyt", type: "finished" };
+  if (isLive(game)) return { text: "Live", type: "live" };
+
+  const kickoff = finlandClockDate(game);
+  if (!kickoff) return { text: "Tulossa", type: "upcoming" };
+
+  const now = Date.now();
+  const diffMs = kickoff.getTime() - now;
+
+  if (diffMs <= 0) {
+    return { text: "Live", type: "live" };
+  }
+
+  const diffMinutes = Math.floor(diffMs / (60 * 1000));
+  const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
+  const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+
+  if (diffMinutes < 60) {
+    return { text: `Alkaa ${diffMinutes} min päästä`, type: "upcoming" };
+  } else if (diffHours < 24) {
+    return { text: `Alkaa n. ${diffHours} h päästä`, type: "upcoming" };
+  } else {
+    return { text: `Alkaa n. ${diffDays} vrk päästä`, type: "upcoming" };
+  }
 }
 
 function dateLabel(game: ApiGame) {
   const kickoff = finlandClockDate(game);
   if (!kickoff) return game.local_date;
-  return new Intl.DateTimeFormat("fi-FI", {
-    weekday: "long",
+  const dayName = WEEKDAYS_FI[kickoff.getUTCDay()];
+  const datePart = new Intl.DateTimeFormat("fi-FI", {
     day: "numeric",
     month: "numeric",
     timeZone: "UTC",
   }).format(kickoff);
+  return `${dayName} ${datePart}`;
+}
+
+function formatScorersList(scorers: string[]) {
+  const counts: Record<string, number> = {};
+  scorers.forEach((name) => {
+    counts[name] = (counts[name] ?? 0) + 1;
+  });
+  
+  return Object.entries(counts)
+    .map(([name, count]) => count > 1 ? `${name} x${count}` : name)
+    .join(", ");
+}
+
+function kickoffMillis(game: ApiGame) {
+  return finlandClockDate(game)?.getTime() ?? Number.MAX_SAFE_INTEGER;
 }
 
 function cityCountry(stadiums: ApiStadium[], game: ApiGame) {
@@ -247,6 +280,13 @@ function InlinePredictionEditor({
   );
 }
 
+function channelClass(channel: string) {
+  const lower = channel.toLowerCase();
+  if (lower.includes("yle")) return "yle";
+  if (lower.includes("mtv") || lower.includes("katsomo")) return "mtv";
+  return "";
+}
+
 function MatchCard({
   game,
   teams,
@@ -269,17 +309,7 @@ function MatchCard({
   const homeScorers = parseScorers(game.home_scorers);
   const awayScorers = parseScorers(game.away_scorers);
   
-  const predictingPlayers = players.filter((player) => player.predictions.some((item) => item.matchId === game.id));
-  const hasCurrentPlayerPredicted = predictingPlayers.some((p) => p.name === currentPlayerName);
-  
-  const displayPlayers = [...predictingPlayers];
-  if (currentPlayerName && !predictionLocked(game) && !hasCurrentPlayerPredicted) {
-    const currentPlayerObj = players.find((p) => p.name === currentPlayerName);
-    if (currentPlayerObj) {
-      displayPlayers.push(currentPlayerObj);
-    }
-  }
-  displayPlayers.sort((a, b) => a.name.localeCompare(b.name));
+  const displayPlayers = [...players].sort((a, b) => a.name.localeCompare(b.name));
 
   const scheduled = finlandClockDate(game);
   const infoLabel = cityCountry(stadiums, game);
@@ -290,6 +320,8 @@ function MatchCard({
       ? new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }).format(scheduled)
       : "--:--";
 
+  const kickoffStatus = getKickoffStatus(game);
+
   return (
     <article className="match-card">
       <div className="match-shadow red" />
@@ -297,7 +329,7 @@ function MatchCard({
       <div className="match-shadow green" />
 
       <div className="match-badges">
-        <span className={clsx("match-status", { live: isLive(game), finished: isFinished(game) })}>{statusLabel(game)}</span>
+        <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
         <span className="group-tag">{stageLabel(game)}</span>
       </div>
 
@@ -305,7 +337,7 @@ function MatchCard({
         <span className="venue-name">{infoLabel || "Kisapaikka"}</span>
         {channels.length ? (
           <span className="channel-pills">
-            {channels.map((channel) => <span className="channel-pill" key={channel}>{channel}</span>)}
+            {channels.map((channel) => <span className={clsx("channel-pill", channelClass(channel))} key={channel}>{channel}</span>)}
           </span>
         ) : null}
       </div>
@@ -319,7 +351,6 @@ function MatchCard({
 
           <div className="inline-score-block">
             <strong className="inline-score">{centerValue}</strong>
-            {!isFinished(game) && !isLive(game) ? <span className="inline-time">{finnishKickoff(game)}</span> : null}
           </div>
 
           <div className="inline-team">
@@ -331,27 +362,17 @@ function MatchCard({
 
       {homeScorers.length || awayScorers.length ? (
         <div className="scorer-strip">
-          <div>
-            {homeScorers.length ? (
-              <>
-                <strong>{homeScorers.join(", ")}</strong>
-                <span>{normalizeTeam(home)}</span>
-              </>
-            ) : null}
+          <div className="home-scorers">
+            {formatScorersList(homeScorers)}
           </div>
-          <div>
-            {awayScorers.length ? (
-              <>
-                <strong>{awayScorers.join(", ")}</strong>
-                <span>{normalizeTeam(away)}</span>
-              </>
-            ) : null}
+          <div className="away-scorers">
+            {formatScorersList(awayScorers)}
           </div>
         </div>
       ) : null}
 
       <div className="prediction-list">
-        {displayPlayers.length ? displayPlayers.map((player) => {
+        {displayPlayers.map((player) => {
           const prediction = player.predictions.find((item) => item.matchId === game.id);
           const isSelf = player.name === currentPlayerName;
           const isOpen = !predictionLocked(game);
@@ -368,33 +389,33 @@ function MatchCard({
             );
           }
 
-          if (!prediction) return null;
-
-          const isLocked = predictionLocked(game);
-          const showActualScore = isLocked || player.name === currentPlayerName;
+          const hasPredicted = !!prediction;
 
           return (
             <div className="prediction-row" key={player.name}>
               <strong>{player.name}</strong>
-              {showActualScore ? (
-                <>
-                  <span className="prediction-score">{prediction.home}-{prediction.away}</span>
-                  <span className="points">{matchPoints(prediction, game)} p</span>
-                </>
+              {!isOpen ? (
+                hasPredicted ? (
+                  <>
+                    <span className="prediction-score">{prediction.home}-{prediction.away}</span>
+                    <span className="points">{matchPoints(prediction, game)} p</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="prediction-score" style={{ color: "var(--muted)" }}>–</span>
+                    <span className="points">0 p</span>
+                  </>
+                )
               ) : (
-                <>
-                  <span className="prediction-score" style={{ color: "var(--muted)" }}>Valmis</span>
-                  <span className="points"></span>
-                </>
+                hasPredicted ? (
+                  <span className="prediction-score" style={{ color: "var(--accent-green)" }} title="Veikkaus tallennettu">✔</span>
+                ) : (
+                  <span className="prediction-score" style={{ color: "var(--muted)" }}>–</span>
+                )
               )}
             </div>
           );
-        }) : (
-          <div className="prediction-row empty">
-            <strong>Veikkaukset</strong>
-            <span className="muted small">Auki vielä</span>
-          </div>
-        )}
+        })}
       </div>
     </article>
   );
@@ -621,8 +642,6 @@ export default function App() {
   const [players, setPlayers] = useState<PlayerState[]>(localPlayers);
   const [mainView, setMainView] = useState<MainView>("matches");
   const [user, setUser] = useState<User | null>(null);
-  const [syncState, setSyncState] = useState<WorldCupState["source"]>(cached?.source ?? "fallback");
-
   const currentName = allowedName(firstName(user));
   const denied = Boolean(user && !currentName);
 
@@ -632,7 +651,6 @@ export default function App() {
       setGames(data.games);
       setTeams(data.teams);
       setStadiums(data.stadiums);
-      setSyncState(data.source);
       saveCachedWorldCup(data);
     } catch {
       const cachedData = loadCachedWorldCup();
@@ -640,13 +658,11 @@ export default function App() {
         setGames(cachedData.games);
         setTeams(cachedData.teams);
         setStadiums(cachedData.stadiums ?? FALLBACK_STADIUMS);
-        setSyncState("cache");
         return;
       }
       setGames(FALLBACK_GAMES);
       setTeams(FALLBACK_TEAMS);
       setStadiums(FALLBACK_STADIUMS);
-      setSyncState("fallback");
     }
   }
 
@@ -680,6 +696,17 @@ export default function App() {
 
   const table = useMemo(() => standings(players, games), [players, games]);
   const scorers = useMemo(() => scorerTable(games), [games]);
+  const scorerRanks = useMemo(() => {
+    const ranks = new Map<string, number>();
+    let currentRank = 1;
+    for (let i = 0; i < scorers.length; i++) {
+      if (i > 0 && scorers[i].goals < scorers[i - 1].goals) {
+        currentRank = i + 1;
+      }
+      ranks.set(scorers[i].name, currentRank);
+    }
+    return ranks;
+  }, [scorers]);
   const pickedTopScorers = players.map((player) => player.bonus.topScorer).filter(Boolean);
   const shownScorers = [
     ...scorers.slice(0, 10),
@@ -771,10 +798,13 @@ export default function App() {
           <section className="side-card auth-card">
             <div className="auth-row">
               <div className="user-pill">
-                <span className="avatar">{(currentName ?? "?").slice(0, 1)}</span>
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt="" className="avatar avatar-img" referrerPolicy="no-referrer" />
+                ) : (
+                  <span className="avatar">{(currentName ?? "?").slice(0, 1)}</span>
+                )}
                 <div>
                   <strong>{currentName ?? "Vierailija"}</strong>
-                  <div className="subtle-note">Google-kirjautuminen käytössä</div>
                 </div>
               </div>
               {currentName ? (
@@ -782,11 +812,6 @@ export default function App() {
               ) : (
                 <button className="primary-btn" onClick={signIn}><LogIn size={16} /> Kirjaudu</button>
               )}
-            </div>
-
-            <div className="sync-pill">
-              <span className={clsx("sync-dot", syncState)} />
-              {syncState === "direct" || syncState === "proxy" ? "Tulokset päivittyvät automaattisesti" : "Näytetään viimeisin saatavilla oleva data"}
             </div>
           </section>
 
@@ -807,10 +832,18 @@ export default function App() {
               const pickers = isBonusLocked()
                 ? players.filter((player) => player.bonus.topScorer.toLowerCase() === scorer.name.toLowerCase()).map((player) => player.name)
                 : [];
+              const team = teamById(teams, scorer.teamId);
+              const flagUrl = team?.flag;
               return (
                 <div className="scorer-row" key={scorer.name}>
-                  <span className="rank">{index + 1}</span>
-                  <span className="scorer-name">{scorer.name}{pickers.length ? <span className="muted small"> / {pickers.join(", ")}</span> : null}</span>
+                  <span className="rank">{scorerRanks.get(scorer.name) ?? index + 1}</span>
+                  <span className="scorer-name">
+                    {flagUrl ? <img src={flagUrl} alt="" className="scorer-flag" /> : null}
+                    <span>
+                      {scorer.name}
+                      {pickers.length ? <span className="muted small"> / {pickers.join(", ")}</span> : null}
+                    </span>
+                  </span>
                   <span className="points">{scorer.goals}</span>
                 </div>
               );
