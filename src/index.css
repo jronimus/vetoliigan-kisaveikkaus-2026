@@ -27,9 +27,8 @@ body {
   min-width: 320px;
   background-color: #070707;
   background-image:
-    radial-gradient(circle at 100% 0%, var(--accent-cyan) 0%, var(--accent-cyan) 15vw, var(--accent-pink) 15vw, var(--accent-pink) 25vw, transparent 25.1vw),
-    radial-gradient(circle at 0% 100%, var(--accent-green) 0%, var(--accent-green) 18vw, var(--accent-red) 18vw, var(--accent-red) 28vw, transparent 28.1vw),
-    radial-gradient(circle at 0% 0%, var(--accent-yellow) 0%, var(--accent-yellow) 12vw, var(--accent-blue) 12vw, var(--accent-blue) 22vw, transparent 22.1vw);
+    radial-gradient(circle at 100% 0%, #0ad23f 0%, #0ad23f 8vw, transparent 8.1vw, transparent 12vw, #1de8d6 12.1vw, #1de8d6 22vw, transparent 22.1vw, transparent 26vw, #7f00ff 26.1vw, #7f00ff 36vw, transparent 36.1vw, transparent 40vw, #a85cff 40.1vw, #a85cff 50vw, transparent 50.1vw),
+    radial-gradient(circle at 0% 100%, #0ad23f 0%, #0ad23f 8vh, transparent 8.1vh, transparent 12vh, #efff19 12.1vh, #efff19 22vh, transparent 22.1vh, transparent 26vh, #800b2c 26.1vh, #800b2c 36vh, transparent 36.1vh, transparent 40vh, #ff2b17 40.1vh, #ff2b17 50vh, transparent 50.1vh);
   background-attachment: fixed;
   background-repeat: no-repeat;
   color: var(--text);
@@ -62,7 +61,11 @@ button { cursor: pointer; }
 
 .hero, .primary-nav, .layout { position: relative; z-index: 1; }
 
-.hero { margin-bottom: 12px; }
+.hero {
+  max-width: 1882px;
+  width: 100%;
+  margin: 0 auto 12px;
+}
 
 .hero-copy-wrap { max-width: 680px; }
 
@@ -117,7 +120,9 @@ h1 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  margin: 0 auto 14px;
+  max-width: 1882px;
+  width: 100%;
 }
 
 .primary-nav {
@@ -1165,9 +1170,8 @@ img.avatar {
 @media (max-width: 840px) {
   body {
     background-image:
-      radial-gradient(circle at 100% 0%, var(--accent-cyan) 0%, var(--accent-cyan) 25vh, var(--accent-pink) 25vh, var(--accent-pink) 40vh, transparent 40.1vh),
-      radial-gradient(circle at 0% 100%, var(--accent-green) 0%, var(--accent-green) 28vh, var(--accent-red) 28vh, var(--accent-red) 43vh, transparent 43.1vh),
-      radial-gradient(circle at 0% 0%, var(--accent-yellow) 0%, var(--accent-yellow) 20vh, var(--accent-blue) 20vh, var(--accent-blue) 35vh, transparent 35.1vh) !important;
+      radial-gradient(circle at 100% 0%, #0ad23f 0%, #0ad23f 10vw, transparent 10.1vw, transparent 15vw, #1de8d6 15.1vw, #1de8d6 30vw, transparent 30.1vw, transparent 35vw, #7f00ff 35.1vw, #7f00ff 50vw, transparent 50.1vw, transparent 55vw, #a85cff 55.1vw, #a85cff 70vw, transparent 70.1vw),
+      radial-gradient(circle at 0% 100%, #0ad23f 0%, #0ad23f 10vh, transparent 10.1vh, transparent 15vh, #efff19 15.1vh, #efff19 30vh, transparent 30.1vh, transparent 35vh, #800b2c 35.1vh, #800b2c 50vh, transparent 50.1vh, transparent 55vh, #ff2b17 55.1vh, #ff2b17 70vh, transparent 70.1vh) !important;
   }
 
   body::after {
