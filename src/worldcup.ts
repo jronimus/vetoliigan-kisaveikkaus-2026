@@ -647,13 +647,6 @@ export function getScoreBadgeText(game: ApiGame): string {
     return "FULL-TIME";
   }
 
-  const homeGoals = parseScore(game.home_score);
-  const awayGoals = parseScore(game.away_score);
-  const scored = parseScorers(game.home_scorers).length > 0 || parseScorers(game.away_scorers).length > 0;
-  if (isLive(game) && homeGoals === 0 && awayGoals === 0 && !scored) {
-    return "EI SYNKATTU";
-  }
-
   const elapsed = String(game.time_elapsed).toLowerCase().trim();
 
   if (elapsed === "ht" || elapsed === "halftime" || elapsed === "puoliaika") {
