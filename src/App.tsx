@@ -457,10 +457,9 @@ function generateCardBackdropStyle(gameId: string) {
 
   return {
     position: "absolute" as const,
-    inset: "-20px",
+    inset: 0,
     background: gradient,
     zIndex: 1,
-    filter: "url(#wavy-border)",
   };
 }
 
