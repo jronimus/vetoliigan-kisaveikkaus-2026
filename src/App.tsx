@@ -493,6 +493,25 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return chunks;
 }
 
+function groupAdjacentGamesByDay(rowGames: ApiGame[]): ApiGame[][] {
+  if (rowGames.length === 0) return [];
+  const groups: ApiGame[][] = [];
+  let currentGroup: ApiGame[] = [rowGames[0]];
+
+  for (let i = 1; i < rowGames.length; i++) {
+    const prevGame = rowGames[i - 1];
+    const currGame = rowGames[i];
+    if (dateLabel(prevGame) === dateLabel(currGame)) {
+      currentGroup.push(currGame);
+    } else {
+      groups.push(currentGroup);
+      currentGroup = [currGame];
+    }
+  }
+  groups.push(currentGroup);
+  return groups;
+}
+
 function MatchCardColumn({
   game,
   teams,
@@ -770,6 +789,11 @@ function MatchSections({
   const visibleRecentDays = allRecentDays.slice(0, visibleDaysCount);
   const hasMoreRecentDays = allRecentDays.length > visibleDaysCount;
 
+  // Flatten the visible recent games (maintaining date order)
+  const visibleRecentGames = useMemo(() => {
+    return visibleRecentDays.flatMap(([_, dayGames]) => dayGames);
+  }, [visibleRecentDays]);
+
   // Group older games by date label
   const olderGroupedByDate = new Map<string, ApiGame[]>();
   olderGames.forEach((game) => {
@@ -777,49 +801,76 @@ function MatchSections({
     olderGroupedByDate.set(key, [...(olderGroupedByDate.get(key) ?? []), game]);
   });
   const allOlderDays = [...olderGroupedByDate.entries()];
+  
+  const visibleOlderGames = useMemo(() => {
+    return allOlderDays.flatMap(([_, dayGames]) => dayGames);
+  }, [allOlderDays]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const containerWidth = useContainerWidth(containerRef);
 
-  // Dynamic layout calculation
+  // Dynamic layout calculation: max M games on a row
   const activeWidth = containerWidth || (typeof window !== "undefined" ? window.innerWidth : 320);
-  const k = Math.max(1, Math.floor(activeWidth / 296));
+  const M = Math.min(5, Math.max(1, Math.floor(activeWidth / 296)));
 
-  function renderDaySection(label: string, dayGames: ApiGame[]) {
-    const chunks = chunkArray(dayGames, k);
+  function renderGamesFlow(flatGames: ApiGame[]) {
+    // Find the first game ID of each day in flatGames
+    const firstGameIdOfDay = new Map<string, string>();
+    flatGames.forEach((game) => {
+      const label = dateLabel(game);
+      if (!firstGameIdOfDay.has(label)) {
+        firstGameIdOfDay.set(label, game.id);
+      }
+    });
+
+    // Chunk the flat games into rows of max size M
+    const rows = chunkArray(flatGames, M);
 
     return (
-      <div className="match-day-section" key={label}>
-        <div className="match-day-header">
-          {label}
-        </div>
-        <div className="match-day-cards-row">
-          {chunks.map((chunk, chunkIdx) => (
-            <div
-              className="match-card-wrapper"
-              style={{ maxWidth: `${chunk.length * 320}px`, width: "100%" }}
-              key={chunkIdx}
-            >
-              <MatchGroupCard
-                games={chunk}
-                teams={teams}
-                stadiums={stadiums}
-                players={players}
-                currentPlayerName={currentPlayerName}
-                setPlayers={setPlayers}
-              />
+      <div className="match-rows-list">
+        {rows.map((rowGames, rowIdx) => {
+          // Group adjacent games of the same day inside this row
+          const groups = groupAdjacentGamesByDay(rowGames);
+
+          return (
+            <div className="match-row-flow" key={rowIdx}>
+              {groups.map((chunk: ApiGame[], chunkIdx: number) => {
+                const dayLabel = dateLabel(chunk[0]);
+                const isFirstGameOfDay = chunk[0].id === firstGameIdOfDay.get(dayLabel);
+                
+                return (
+                  <div
+                    className="match-card-wrapper"
+                    style={{ maxWidth: `${chunk.length * 320}px`, width: "100%" }}
+                    key={chunkIdx}
+                  >
+                    <div
+                      className="match-day-header"
+                      style={{ visibility: isFirstGameOfDay ? "visible" : "hidden" }}
+                    >
+                      {dayLabel}
+                    </div>
+                    <MatchGroupCard
+                      games={chunk}
+                      teams={teams}
+                      stadiums={stadiums}
+                      players={players}
+                      currentPlayerName={currentPlayerName}
+                      setPlayers={setPlayers}
+                    />
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
     );
   }
 
   return (
     <div className="section-stack-rows" ref={containerRef}>
-      <div className="match-days-list">
-        {visibleRecentDays.map(([label, games]) => renderDaySection(label, games))}
-      </div>
+      {renderGamesFlow(visibleRecentGames)}
 
       {hasMoreRecentDays && (
         <div className="show-more-row">
@@ -829,12 +880,10 @@ function MatchSections({
         </div>
       )}
 
-      {allOlderDays.length > 0 && (
+      {olderGames.length > 0 && (
         <div className="older-games-section">
           <div className="older-heading">Aikaisemmat ottelut</div>
-          <div className="match-days-list">
-            {allOlderDays.map(([label, games]) => renderDaySection(label, games))}
-          </div>
+          {renderGamesFlow(visibleOlderGames)}
         </div>
       )}
     </div>

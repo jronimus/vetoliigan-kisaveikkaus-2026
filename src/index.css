@@ -372,21 +372,16 @@ img.avatar {
   padding-bottom: 8px;
 }
 
-.match-days-list {
+.match-rows-list {
   display: flex;
   flex-direction: column;
   gap: 24px;
   width: 100%;
 }
 
-.match-day-section {
+.match-row-flow {
   display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-
-.match-day-cards-row {
-  display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
   gap: 16px;
   justify-content: center;
@@ -1480,7 +1475,7 @@ img.avatar {
     gap: 14px;
   }
 
-  .match-day-cards-row {
+  .match-row-flow {
     width: 100%;
     gap: 14px;
     padding: 0 16px 16px;
