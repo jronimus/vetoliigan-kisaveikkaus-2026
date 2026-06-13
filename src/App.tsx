@@ -1170,8 +1170,24 @@ export default function App() {
       {/* Mobile Top Bar */}
       <div className="mobile-top-bar">
         <nav className="mobile-primary-nav">
-          <button className={clsx("mobile-nav-link", { active: mainView === "matches" })} onClick={() => setMainView("matches")}>Ottelut</button>
-          <button className={clsx("mobile-nav-link", { active: mainView === "tables" })} onClick={() => setMainView("tables")}>Taulukot</button>
+          <button 
+            className={clsx("mobile-nav-link", { active: mainView === "matches" })} 
+            onClick={() => {
+              setMainView("matches");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            Ottelut
+          </button>
+          <button 
+            className={clsx("mobile-nav-link", { active: mainView === "tables" })} 
+            onClick={() => {
+              setMainView("tables");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            Taulukot
+          </button>
         </nav>
 
         <div className="mobile-top-right">
@@ -1179,7 +1195,7 @@ export default function App() {
             <div className="mobile-top-user-wrap">
               {showPointsHint && (
                 <div className="points-tooltip">
-                  Klikkaa tästä nähdäksesi pistetaulukon!
+                  Tästä pääset pistetaulukkoon
                 </div>
               )}
               <span 
@@ -1225,8 +1241,24 @@ export default function App() {
 
       <div className="nav-toolbar-row">
         <nav className="primary-nav">
-          <button className={clsx("nav-link", { active: mainView === "matches" })} onClick={() => setMainView("matches")}>Ottelut</button>
-          <button className={clsx("nav-link", { active: mainView === "tables" })} onClick={() => setMainView("tables")}>Taulukot</button>
+          <button 
+            className={clsx("nav-link", { active: mainView === "matches" })} 
+            onClick={() => {
+              setMainView("matches");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            Ottelut
+          </button>
+          <button 
+            className={clsx("nav-link", { active: mainView === "tables" })} 
+            onClick={() => {
+              setMainView("tables");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            Taulukot
+          </button>
         </nav>
       </div>
 
