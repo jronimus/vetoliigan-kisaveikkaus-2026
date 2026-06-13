@@ -841,7 +841,11 @@ function MatchSections({
                 return (
                   <div
                     className="match-card-wrapper"
-                    style={{ maxWidth: `${chunk.length * 320}px`, width: "100%" }}
+                    style={{
+                      flex: `${chunk.length} 1 ${chunk.length * 250}px`,
+                      maxWidth: `${chunk.length * 320}px`,
+                      width: "100%",
+                    }}
                     key={chunkIdx}
                   >
                     <div
