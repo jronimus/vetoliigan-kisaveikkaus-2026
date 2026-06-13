@@ -596,9 +596,10 @@ function MatchCardColumn({
   return (
     <>
       <div className="match-badges">
-        <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
+        {kickoffStatus.type !== "upcoming" && (
+          <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
+        )}
         {game.fallback_source === "yle" ? <span className="sync-pill">EI SYNKATTU</span> : null}
-        <span className="group-tag">{stageLabel(game)}</span>
       </div>
 
       <div className="top-ribbon">
@@ -611,35 +612,45 @@ function MatchCardColumn({
       </div>
 
       <div className="match-stage">
-        <div className="match-inline">
-          <div className="inline-team">
-            {homeTeam?.flag ? <img className="inline-flag home-flag" src={homeTeam.flag} alt="" /> : null}
-            <div className={clsx("inline-name-wrap", { "has-marquee": homeLong })}>
-              <span className={clsx("inline-name", { marquee: homeLong })}>{normalizeTeam(home)}</span>
+        <div className="match-stage-layout">
+          <div className="match-inline">
+            <div className="inline-team">
+              {homeTeam?.flag ? <img className="inline-flag home-flag" src={homeTeam.flag} alt="" /> : null}
+              <div className={clsx("inline-name-wrap", { "has-marquee": homeLong })}>
+                <span className={clsx("inline-name", { marquee: homeLong })}>{normalizeTeam(home)}</span>
+              </div>
+            </div>
+
+            <div className="inline-center-block">
+              {kickoffStatus.type === "live" ? (
+                <div className="score-capsule live">
+                  <span className="score-num">{parseScore(game.home_score)}</span>
+                  <span className="score-divider-line" />
+                  <span className="score-num">{parseScore(game.away_score)}</span>
+                </div>
+              ) : kickoffStatus.type === "finished" ? (
+                <div className="score-capsule finished">
+                  <span className="score-num">{parseScore(game.home_score)}</span>
+                  <span className="score-divider-line" />
+                  <span className="score-num">{parseScore(game.away_score)}</span>
+                </div>
+              ) : (
+                <div className="score-capsule upcoming">
+                  <span className="score-time">{centerValue}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="inline-team">
+              {awayTeam?.flag ? <img className="inline-flag away-flag" src={awayTeam.flag} alt="" /> : null}
+              <div className={clsx("inline-name-wrap", { "has-marquee": awayLong })}>
+                <span className={clsx("inline-name", { marquee: awayLong })}>{normalizeTeam(away)}</span>
+              </div>
             </div>
           </div>
 
-          {isFinished(game) || isLive(game) ? (
-            <div className={clsx("inline-score-block new-style", { "live-game": isLive(game) })}>
-              <div className="inline-score-box">
-                <span className="inline-score-val">{parseScore(game.home_score)}</span>
-                <span className="inline-score-colon">:</span>
-                <span className="inline-score-val">{parseScore(game.away_score)}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="inline-time-block">
-              <strong className={clsx("inline-score", typeof centerValue === "string" && centerValue.startsWith("Alkaa") ? "countdown" : "upcoming")}>
-                {centerValue}
-              </strong>
-            </div>
-          )}
-
-          <div className="inline-team">
-            {awayTeam?.flag ? <img className="inline-flag away-flag" src={awayTeam.flag} alt="" /> : null}
-            <div className={clsx("inline-name-wrap", { "has-marquee": awayLong })}>
-              <span className={clsx("inline-name", { marquee: awayLong })}>{normalizeTeam(away)}</span>
-            </div>
+          <div className="match-stage-group-label">
+            {stageLabel(game)}
           </div>
         </div>
       </div>
