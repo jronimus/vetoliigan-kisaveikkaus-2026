@@ -974,7 +974,7 @@ export default function App() {
 
   useEffect(() => {
     if (currentName) {
-      const timer = setTimeout(() => setShowPointsHint(false), 5000);
+      const timer = setTimeout(() => setShowPointsHint(false), 8000);
       return () => clearTimeout(timer);
     }
   }, [currentName]);
@@ -1186,7 +1186,7 @@ export default function App() {
                 className="mobile-user-points"
                 onClick={() => document.getElementById('points-table-anchor')?.scrollIntoView({ behavior: 'smooth' })}
               >
-                {myPoints} p
+                {currentName} {myPoints} p
               </span>
               {user?.photoURL ? (
                 <img 
