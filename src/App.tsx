@@ -28,7 +28,6 @@ import {
   saveCachedWorldCup,
   scorerTable,
   teamName,
-  getScoreBadgeText,
   normalizeScorerName,
   stripAccents,
   type ApiGame,
@@ -470,7 +469,7 @@ function MatchCard({
   const homeLines = useMemo(() => {
     const counts: Record<string, { count: number; isOwnGoal: boolean }> = {};
     homeScorers.forEach((scorer) => {
-      const display = scorer.isOwnGoal ? `${scorer.name} (om)` : scorer.name;
+      const display = scorer.isOwnGoal ? `${scorer.name} (OM)` : scorer.name;
       const current = counts[display] || { count: 0, isOwnGoal: scorer.isOwnGoal };
       counts[display] = { count: current.count + 1, isOwnGoal: scorer.isOwnGoal };
     });
@@ -480,7 +479,7 @@ function MatchCard({
   const awayLines = useMemo(() => {
     const counts: Record<string, { count: number; isOwnGoal: boolean }> = {};
     awayScorers.forEach((scorer) => {
-      const display = scorer.isOwnGoal ? `${scorer.name} (om)` : scorer.name;
+      const display = scorer.isOwnGoal ? `${scorer.name} (OM)` : scorer.name;
       const current = counts[display] || { count: 0, isOwnGoal: scorer.isOwnGoal };
       counts[display] = { count: current.count + 1, isOwnGoal: scorer.isOwnGoal };
     });
@@ -523,7 +522,6 @@ function MatchCard({
 
             {isFinished(game) || isLive(game) ? (
               <div className={clsx("inline-score-block new-style", { "live-game": isLive(game) })}>
-                <div className="inline-score-badge">{getScoreBadgeText(game)}</div>
                 <div className="inline-score-box">
                   <span className="inline-score-val">{parseScore(game.home_score)}</span>
                   <span className="inline-score-colon">:</span>
@@ -576,9 +574,11 @@ function MatchCard({
           }
 
           const hasPredicted = !!prediction;
+          const points = prediction ? matchPoints(prediction, game) : 0;
+          const pointsClass = !isOpen && prediction ? `points-${points}` : "";
 
           return (
-            <div className="prediction-row" key={player.name}>
+            <div className={clsx("prediction-row", pointsClass)} key={player.name}>
               <strong className="pred-player-name">{player.name}</strong>
               <div className="pred-score-wrap">
                 {!isOpen ? (
