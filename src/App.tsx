@@ -1132,27 +1132,37 @@ export default function App() {
       <main className="app-shell">
       <div className="arena-backdrop" />
 
-      {/* Mobile Header Actions */}
-      <div className="mobile-header-actions">
-        {currentName ? (
-          <div className="mobile-auth-logged">
-            {user?.photoURL ? (
-              <img src={user.photoURL} alt="" className="avatar avatar-img" referrerPolicy="no-referrer" onClick={signOutUser} title="Kirjaudu ulos" />
-            ) : (
-              <span className="avatar" onClick={signOutUser} title="Kirjaudu ulos">{(currentName ?? "?").slice(0, 1)}</span>
-            )}
-          </div>
-        ) : (
-          <button className="primary-btn compact" onClick={signIn}><LogIn size={14} /> Kirjaudu</button>
-        )}
-        <button className="mobile-jump-btn" onClick={() => document.getElementById('points-table-anchor')?.scrollIntoView({ behavior: 'smooth' })}>
-          Pistetaulukkoon 
-          <div className="arrow-circle">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="var(--accent-green)">
-              <path d="M4 8 h16 l-8 10 z" stroke="var(--accent-green)" strokeWidth="2" strokeLinejoin="round" />
-            </svg>
-          </div>
-        </button>
+      {/* Mobile Top Bar */}
+      <div className="mobile-top-bar">
+        <div className="mobile-top-left">
+          {currentName ? (
+            <div className="mobile-auth-logged">
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="" className="avatar avatar-img" referrerPolicy="no-referrer" onClick={signOutUser} title="Kirjaudu ulos" />
+              ) : (
+                <span className="avatar" onClick={signOutUser} title="Kirjaudu ulos">{(currentName ?? "?").slice(0, 1)}</span>
+              )}
+            </div>
+          ) : (
+            <button className="primary-btn compact" onClick={signIn}><LogIn size={14} /> Kirjaudu</button>
+          )}
+        </div>
+
+        <nav className="mobile-primary-nav">
+          <button className={clsx("mobile-nav-link", { active: mainView === "matches" })} onClick={() => setMainView("matches")}>Ottelut</button>
+          <button className={clsx("mobile-nav-link", { active: mainView === "tables" })} onClick={() => setMainView("tables")}>Taulukot</button>
+        </nav>
+
+        <div className="mobile-top-right">
+          <button className="mobile-jump-btn" onClick={() => document.getElementById('points-table-anchor')?.scrollIntoView({ behavior: 'smooth' })}>
+            Pistetaulukkoon 
+            <div className="arrow-circle">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="var(--accent-green)">
+                <path d="M4 8 h16 l-8 10 z" stroke="var(--accent-green)" strokeWidth="2" strokeLinejoin="round" />
+              </svg>
+            </div>
+          </button>
+        </div>
       </div>
 
       <header className="hero">

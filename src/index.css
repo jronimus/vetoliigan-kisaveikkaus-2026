@@ -91,6 +91,9 @@ button { cursor: pointer; }
 
 @media (max-width: 580px) {
   .hero-header-row {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
     gap: 16px;
   }
   .hero-logo {
@@ -1192,7 +1195,7 @@ img.avatar {
   display: block !important;
 }
 
-.mobile-header-actions {
+.mobile-top-bar {
   display: none;
 }
 
@@ -1266,15 +1269,48 @@ img.avatar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .mobile-header-actions {
+  .mobile-top-bar {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-    position: absolute;
-    top: 14px;
-    right: 12px;
-    z-index: 10;
+    align-items: center;
+    justify-content: space-between;
+    background: #000000;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 16px;
+    position: sticky;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 100;
+    margin-bottom: 12px;
+  }
+
+  .mobile-primary-nav {
+    display: flex;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 3px;
+    border-radius: 10px;
+  }
+
+  .mobile-nav-link {
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px 12px;
+    transition: all 0.2s;
+  }
+
+  .mobile-nav-link.active {
+    background: #f3f2ee;
+    color: #111;
+  }
+
+  .nav-toolbar-row {
+    display: none !important;
   }
 
   .desktop-only-auth {
@@ -1310,7 +1346,7 @@ img.avatar {
   }
 
   .app-shell {
-    padding: 10px 0 24px; /* full width body, 0 horizontal padding */
+    padding: 0 0 24px; /* full width body, 0 horizontal and top padding */
   }
 
   .hero, .nav-toolbar-row, .rules-grid, .sidebar {
