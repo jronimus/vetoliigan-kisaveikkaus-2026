@@ -618,6 +618,9 @@ function MatchCardColumn({
           ) : null}
           {game.fallback_source === "yle" ? <span className="sync-pill">EI SYNKATTU</span> : null}
         </div>
+        <div className="match-stage-group-label">
+          {stageLabel(game)}
+        </div>
       </div>
 
       <div className="match-stage">
@@ -651,10 +654,6 @@ function MatchCardColumn({
             {awayTeam?.flag ? (
               <img className="inline-flag away-flag" src={awayTeam.flag} alt="" />
             ) : null}
-
-            <div className="match-stage-group-label">
-              {stageLabel(game)}
-            </div>
           </div>
         </div>
 
