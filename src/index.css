@@ -432,6 +432,14 @@ img.avatar {
   overflow: hidden;
 }
 
+.match-card-border-backdrop {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px 18px 30px 30px;
+  filter: url(#wavy-border);
+  z-index: 1;
+}
+
 .match-card {
   position: relative;
   overflow: hidden;

@@ -433,72 +433,34 @@ function getSeededRandom(seedStr: string) {
   };
 }
 
-function generateCardBlobs(gameId: string) {
+function generateCardBackdropStyle(gameId: string) {
   const rand = getSeededRandom(gameId);
-  const blobs = [];
   
-  // Left blob
-  const leftColor = BORDER_PALETTE[Math.floor(rand() * BORDER_PALETTE.length)];
-  const leftHeight = Math.floor(rand() * 40) + 70; // 70 to 110px
-  const leftWidth = Math.floor(rand() * 20) + 25; // 25 to 45px
-  const leftTop = Math.floor(rand() * 30) + 25; // 25% to 55%
-  blobs.push({
-    style: {
-      position: "absolute" as const,
-      left: `-${leftWidth / 2}px`,
-      top: `${leftTop}%`,
-      width: `${leftWidth}px`,
-      height: `${leftHeight}px`,
-      borderRadius: "50%",
-      backgroundColor: leftColor,
-      zIndex: 1,
-      filter: "blur(2px)",
-    }
-  });
+  // Randomize boundary angles relative to 45deg standard.
+  const t1 = Math.floor(rand() * 40) + 115; // standard 135
+  const t2 = Math.floor(rand() * 40) + 205; // standard 225
+  const t3 = Math.floor(rand() * 40) + 295; // standard 315
+  
+  // Shuffled colors from BORDER_PALETTE
+  const shuffledColors = [...BORDER_PALETTE].sort(() => rand() - 0.5);
+  const c1 = shuffledColors[0];
+  const c2 = shuffledColors[1];
+  const c3 = shuffledColors[2];
+  const c4 = shuffledColors[3];
 
-  // Right blob
-  const rightColor = BORDER_PALETTE[Math.floor(rand() * BORDER_PALETTE.length)];
-  const rightHeight = Math.floor(rand() * 40) + 70; // 70 to 110px
-  const rightWidth = Math.floor(rand() * 20) + 25; // 25 to 45px
-  const rightTop = Math.floor(rand() * 30) + 25; // 25% to 55%
-  blobs.push({
-    style: {
-      position: "absolute" as const,
-      right: `-${rightWidth / 2}px`,
-      top: `${rightTop}%`,
-      width: `${rightWidth}px`,
-      height: `${rightHeight}px`,
-      borderRadius: "50%",
-      backgroundColor: rightColor,
-      zIndex: 1,
-      filter: "blur(2px)",
-    }
-  });
+  const gradient = `conic-gradient(from 45deg, 
+    ${c1} 0deg ${t1 - 45}deg, 
+    ${c2} ${t1 - 45}deg ${t2 - 45}deg, 
+    ${c3} ${t2 - 45}deg ${t3 - 45}deg, 
+    ${c4} ${t3 - 45}deg 360deg
+  )`;
 
-  // Bottom blobs (1 or 2)
-  const numBottom = Math.floor(rand() * 2) + 1; // 1 or 2 bottom blobs
-  for (let i = 0; i < numBottom; i++) {
-    const bottomColor = BORDER_PALETTE[Math.floor(rand() * BORDER_PALETTE.length)];
-    const bottomWidth = Math.floor(rand() * 60) + 80; // 80 to 140px
-    const bottomHeight = Math.floor(rand() * 25) + 30; // 30 to 55px
-    const bottomLeft = Math.floor(rand() * 40) + 20 + (i * 25); // spread them out
-    blobs.push({
-      style: {
-        position: "absolute" as const,
-        bottom: `-${bottomHeight / 2}px`,
-        left: `${bottomLeft}%`,
-        transform: "translateX(-50%)",
-        width: `${bottomWidth}px`,
-        height: `${bottomHeight}px`,
-        borderRadius: "50%",
-        backgroundColor: bottomColor,
-        zIndex: 1,
-        filter: "blur(2px)",
-      }
-    });
-  }
-
-  return blobs;
+  return {
+    position: "absolute" as const,
+    inset: 0,
+    background: gradient,
+    zIndex: 1,
+  };
 }
 
 function MatchCard({
@@ -582,13 +544,11 @@ function MatchCard({
   const homeLong = normalizeTeam(home).length > 13;
   const awayLong = normalizeTeam(away).length > 13;
 
-  const blobs = useMemo(() => generateCardBlobs(game.id), [game.id]);
+  const backdropStyle = useMemo(() => generateCardBackdropStyle(game.id), [game.id]);
 
   return (
     <div className="match-card-border-wrap">
-      {blobs.map((blob, idx) => (
-        <div key={idx} style={blob.style} className="card-border-blob" />
-      ))}
+      <div className="match-card-border-backdrop" style={backdropStyle} />
       <article className="match-card">
         <div className="match-badges">
           <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
@@ -1514,6 +1474,14 @@ export default function App() {
           </div>
         </div>
       </footer>
+      <svg style={{ position: "absolute", width: 0, height: 0, pointerEvents: "none" }}>
+        <defs>
+          <filter id="wavy-border">
+            <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="12" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+      </svg>
     </>
   );
 }
