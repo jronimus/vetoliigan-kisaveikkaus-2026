@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { LogIn, LogOut, Trophy } from "lucide-react";
@@ -463,7 +463,37 @@ function generateCardBackdropStyle(gameId: string) {
   };
 }
 
-function MatchCard({
+function useContainerWidth(ref: React.RefObject<HTMLElement | null>) {
+  const [width, setWidth] = useState<number>(0);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const observer = new ResizeObserver((entries) => {
+      if (entries[0]) {
+        setWidth(entries[0].contentRect.width);
+      }
+    });
+
+    observer.observe(element);
+    return () => {
+      observer.unobserve(element);
+    };
+  }, [ref]);
+
+  return width;
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function MatchCardColumn({
   game,
   teams,
   stadiums,
@@ -544,60 +574,56 @@ function MatchCard({
   const homeLong = normalizeTeam(home).length > 13;
   const awayLong = normalizeTeam(away).length > 13;
 
-  const backdropStyle = useMemo(() => generateCardBackdropStyle(game.id), [game.id]);
-
   return (
-    <div className="match-card-border-wrap">
-      <div className="match-card-border-backdrop" style={backdropStyle} />
-      <article className="match-card">
-        <div className="match-badges">
-          <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
-          {game.fallback_source === "yle" ? <span className="sync-pill">EI SYNKATTU</span> : null}
-          <span className="group-tag">{stageLabel(game)}</span>
-        </div>
+    <>
+      <div className="match-badges">
+        <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
+        {game.fallback_source === "yle" ? <span className="sync-pill">EI SYNKATTU</span> : null}
+        <span className="group-tag">{stageLabel(game)}</span>
+      </div>
 
-        <div className="top-ribbon">
-          <span className="venue-name">{infoLabel || "Kisapaikka"}</span>
-          {channels.length ? (
-            <span className="channel-pills">
-              {channels.map((channel) => <span className={clsx("channel-pill", channelClass(channel))} key={channel}>{channel}</span>)}
-            </span>
-          ) : null}
-        </div>
+      <div className="top-ribbon">
+        <span className="venue-name">{infoLabel || "Kisapaikka"}</span>
+        {channels.length ? (
+          <span className="channel-pills">
+            {channels.map((channel) => <span className={clsx("channel-pill", channelClass(channel))} key={channel}>{channel}</span>)}
+          </span>
+        ) : null}
+      </div>
 
-        <div className="match-stage">
-          <div className="match-inline">
-            <div className="inline-team">
-              {homeTeam?.flag ? <img className="inline-flag home-flag" src={homeTeam.flag} alt="" /> : null}
-              <div className={clsx("inline-name-wrap", { "has-marquee": homeLong })}>
-                <span className={clsx("inline-name", { marquee: homeLong })}>{normalizeTeam(home)}</span>
+      <div className="match-stage">
+        <div className="match-inline">
+          <div className="inline-team">
+            {homeTeam?.flag ? <img className="inline-flag home-flag" src={homeTeam.flag} alt="" /> : null}
+            <div className={clsx("inline-name-wrap", { "has-marquee": homeLong })}>
+              <span className={clsx("inline-name", { marquee: homeLong })}>{normalizeTeam(home)}</span>
+            </div>
+          </div>
+
+          {isFinished(game) || isLive(game) ? (
+            <div className={clsx("inline-score-block new-style", { "live-game": isLive(game) })}>
+              <div className="inline-score-box">
+                <span className="inline-score-val">{parseScore(game.home_score)}</span>
+                <span className="inline-score-colon">:</span>
+                <span className="inline-score-val">{parseScore(game.away_score)}</span>
               </div>
             </div>
+          ) : (
+            <div className="inline-time-block">
+              <strong className={clsx("inline-score", typeof centerValue === "string" && centerValue.startsWith("Alkaa") ? "countdown" : "upcoming")}>
+                {centerValue}
+              </strong>
+            </div>
+          )}
 
-            {isFinished(game) || isLive(game) ? (
-              <div className={clsx("inline-score-block new-style", { "live-game": isLive(game) })}>
-                <div className="inline-score-box">
-                  <span className="inline-score-val">{parseScore(game.home_score)}</span>
-                  <span className="inline-score-colon">:</span>
-                  <span className="inline-score-val">{parseScore(game.away_score)}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="inline-time-block">
-                <strong className={clsx("inline-score", typeof centerValue === "string" && centerValue.startsWith("Alkaa") ? "countdown" : "upcoming")}>
-                  {centerValue}
-                </strong>
-              </div>
-            )}
-
-            <div className="inline-team">
-              {awayTeam?.flag ? <img className="inline-flag away-flag" src={awayTeam.flag} alt="" /> : null}
-              <div className={clsx("inline-name-wrap", { "has-marquee": awayLong })}>
-                <span className={clsx("inline-name", { marquee: awayLong })}>{normalizeTeam(away)}</span>
-              </div>
+          <div className="inline-team">
+            {awayTeam?.flag ? <img className="inline-flag away-flag" src={awayTeam.flag} alt="" /> : null}
+            <div className={clsx("inline-name-wrap", { "has-marquee": awayLong })}>
+              <span className={clsx("inline-name", { marquee: awayLong })}>{normalizeTeam(away)}</span>
             </div>
           </div>
         </div>
+      </div>
 
       <div className="scorer-strip-fixed">
         {Array.from({ length: Math.max(5, Math.max(homeLines.length, awayLines.length)) }).map((_, i) => (
@@ -668,6 +694,45 @@ function MatchCard({
           );
         })}
       </div>
+    </>
+  );
+}
+
+function MatchGroupCard({
+  games,
+  teams,
+  stadiums,
+  players,
+  currentPlayerName,
+  setPlayers,
+}: {
+  games: ApiGame[];
+  teams: ApiTeam[];
+  stadiums: ApiStadium[];
+  players: PlayerState[];
+  currentPlayerName?: PlayerName;
+  setPlayers: (players: PlayerState[]) => void;
+}) {
+  const backdropStyle = useMemo(() => generateCardBackdropStyle(games[0].id), [games[0]?.id]);
+
+  return (
+    <div className="match-card-border-wrap">
+      <div className="match-card-border-backdrop" style={backdropStyle} />
+      <article className="match-card">
+        <div className="match-card-columns">
+          {games.map((game) => (
+            <div className="match-card-column" key={game.id}>
+              <MatchCardColumn
+                game={game}
+                teams={teams}
+                stadiums={stadiums}
+                players={players}
+                currentPlayerName={currentPlayerName}
+                setPlayers={setPlayers}
+              />
+            </div>
+          ))}
+        </div>
       </article>
     </div>
   );
@@ -713,17 +778,30 @@ function MatchSections({
   });
   const allOlderDays = [...olderGroupedByDate.entries()];
 
-  return (
-    <div className="section-stack-rows">
-      <div className="days-row-grid">
-        {visibleRecentDays.map(([label, games]) =>
-          games.map((game, gameIdx) => (
-            <div className="match-card-wrapper" key={game.id}>
-              <div className="match-day-header" style={{ visibility: gameIdx === 0 ? "visible" : "hidden" }}>
-                {label}
-              </div>
-              <MatchCard
-                game={game}
+  const containerRef = useRef<HTMLDivElement>(null);
+  const containerWidth = useContainerWidth(containerRef);
+
+  // Dynamic layout calculation
+  const activeWidth = containerWidth || (typeof window !== "undefined" ? window.innerWidth : 320);
+  const k = Math.max(1, Math.floor(activeWidth / 296));
+
+  function renderDaySection(label: string, dayGames: ApiGame[]) {
+    const chunks = chunkArray(dayGames, k);
+
+    return (
+      <div className="match-day-section" key={label}>
+        <div className="match-day-header">
+          {label}
+        </div>
+        <div className="match-day-cards-row">
+          {chunks.map((chunk, chunkIdx) => (
+            <div
+              className="match-card-wrapper"
+              style={{ maxWidth: `${chunk.length * 320}px`, width: "100%" }}
+              key={chunkIdx}
+            >
+              <MatchGroupCard
+                games={chunk}
                 teams={teams}
                 stadiums={stadiums}
                 players={players}
@@ -731,8 +809,16 @@ function MatchSections({
                 setPlayers={setPlayers}
               />
             </div>
-          ))
-        )}
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="section-stack-rows" ref={containerRef}>
+      <div className="match-days-list">
+        {visibleRecentDays.map(([label, games]) => renderDaySection(label, games))}
       </div>
 
       {hasMoreRecentDays && (
@@ -746,26 +832,8 @@ function MatchSections({
       {allOlderDays.length > 0 && (
         <div className="older-games-section">
           <div className="older-heading">Aikaisemmat ottelut</div>
-          <div className="section-stack-rows">
-            <div className="days-row-grid">
-              {allOlderDays.map(([label, games]) =>
-                games.map((game, gameIdx) => (
-                  <div className="match-card-wrapper" key={game.id}>
-                    <div className="match-day-header" style={{ visibility: gameIdx === 0 ? "visible" : "hidden" }}>
-                      {label}
-                    </div>
-                    <MatchCard
-                      game={game}
-                      teams={teams}
-                      stadiums={stadiums}
-                      players={players}
-                      currentPlayerName={currentPlayerName}
-                      setPlayers={setPlayers}
-                    />
-                  </div>
-                ))
-              )}
-            </div>
+          <div className="match-days-list">
+            {allOlderDays.map(([label, games]) => renderDaySection(label, games))}
           </div>
         </div>
       )}
