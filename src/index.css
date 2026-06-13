@@ -447,7 +447,7 @@ img.avatar {
   position: relative;
   width: 100%;
   box-sizing: border-box;
-  padding: 0 8px 8px 8px;
+  padding: 8px;
   border-radius: 24px 24px 32px 32px;
   background: #000000;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 0 20px rgba(29, 86, 235, 0.05);
@@ -457,11 +457,8 @@ img.avatar {
 
 .match-card-border-backdrop {
   position: absolute;
-  top: 24px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border-radius: 0 0 32px 32px;
+  inset: 0;
+  border-radius: 24px 24px 32px 32px;
   z-index: 1;
 }
 
@@ -471,7 +468,7 @@ img.avatar {
   width: 100%;
   min-width: 0;
   padding: 12px;
-  border-radius: 24px;
+  border-radius: 16px 16px 24px 24px;
   background: #000000;
   border: none;
   z-index: 2;
@@ -640,11 +637,7 @@ img.avatar {
 .match-stage {
   margin-top: -4px;
   border-radius: 0 0 16px 16px;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(29, 86, 235, 0.95), transparent 34%),
-    radial-gradient(circle at 50% 18%, rgba(255, 43, 23, 0.7), transparent 35%),
-    radial-gradient(circle at 82% 28%, rgba(10, 210, 63, 0.9), transparent 32%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.98));
+  background: transparent;
   padding: 14px 12px;
 }
 
@@ -739,15 +732,16 @@ img.avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 48px;
-  border-radius: 24px;
+  height: 56px;
+  border-radius: 8px;
   padding: 0 16px;
   font-family: "Bebas Neue", Impact, sans-serif;
-  font-size: 32px;
-  min-width: 100px;
+  font-size: 42px;
+  min-width: 110px;
   box-sizing: border-box;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+  overflow: hidden;
 }
 
 .score-capsule.live {
@@ -759,18 +753,18 @@ img.avatar {
 .score-capsule.finished {
   background-color: #000000;
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
 }
 
 .score-capsule.upcoming {
   background-color: #ffffff;
   color: #000000;
-  font-size: 26px;
+  font-size: 32px;
 }
 
 .score-divider-line {
-  width: 1.5px;
-  height: 32px;
+  width: 1px;
+  height: 100%;
   margin: 0 14px;
 }
 
