@@ -811,9 +811,53 @@ function MatchSections({
 
   // Dynamic layout calculation: max M games on a row
   const activeWidth = containerWidth || (typeof window !== "undefined" ? window.innerWidth : 320);
-  const M = Math.min(5, Math.max(1, Math.floor(activeWidth / 296)));
+  const isMobileLayout = activeWidth < 840;
+  const M = isMobileLayout ? 1 : Math.min(5, Math.max(2, Math.floor(activeWidth / 296)));
 
   function renderGamesFlow(flatGames: ApiGame[]) {
+    if (isMobileLayout) {
+      // Group games by day globally on mobile
+      const daysMap = new Map<string, ApiGame[]>();
+      flatGames.forEach((game) => {
+        const dayLabel = dateLabel(game);
+        if (!daysMap.has(dayLabel)) {
+          daysMap.set(dayLabel, []);
+        }
+        daysMap.get(dayLabel)!.push(game);
+      });
+
+      return (
+        <div className="match-rows-list">
+          {[...daysMap.entries()].map(([dayLabel, dayGames], idx) => {
+            return (
+              <div className="match-row-flow" key={idx}>
+                <div
+                  className="match-card-wrapper"
+                  style={{
+                    flex: "1 1 100%",
+                    width: "100%",
+                  }}
+                >
+                  <div className="match-day-header">
+                    {dayLabel}
+                  </div>
+                  <MatchGroupCard
+                    games={dayGames}
+                    teams={teams}
+                    stadiums={stadiums}
+                    players={players}
+                    currentPlayerName={currentPlayerName}
+                    setPlayers={setPlayers}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Otherwise, desktop layout (M >= 2)
     // Chunk the flat games into rows of max size M
     const rows = chunkArray(flatGames, M);
 
@@ -828,17 +872,6 @@ function MatchSections({
               {groups.map((chunk: ApiGame[], chunkIdx: number) => {
                 const dayLabel = dateLabel(chunk[0]);
                 
-                // Check if this day continues from the previous row
-                let isContinuation = false;
-                if (rowIdx > 0 && chunkIdx === 0) {
-                  const prevRow = rows[rowIdx - 1];
-                  const lastGameOfPrevRow = prevRow[prevRow.length - 1];
-                  if (dateLabel(lastGameOfPrevRow) === dayLabel) {
-                    isContinuation = true;
-                  }
-                }
-                const displayLabel = isContinuation ? `${dayLabel} (jatkuu)` : dayLabel;
-                
                 return (
                   <div
                     className="match-card-wrapper"
@@ -850,7 +883,7 @@ function MatchSections({
                     key={chunkIdx}
                   >
                     <div className="match-day-header">
-                      {displayLabel}
+                      {dayLabel}
                     </div>
                     <MatchGroupCard
                       games={chunk}

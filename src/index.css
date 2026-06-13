@@ -1492,6 +1492,19 @@ img.avatar {
     margin-bottom: 20px !important;
   }
 
+  .match-card-columns {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .match-card-column:not(:last-child) {
+    border-right: none;
+    padding-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+  }
+
   .inline-name {
     font-size: 15px;
   }
