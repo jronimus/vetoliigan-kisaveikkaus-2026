@@ -72,18 +72,18 @@ button { cursor: pointer; }
 .hero-header-row {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
   padding: 12px 0;
 }
 
 .hero-logo {
-  width: 72px;
-  height: 72px;
+  width: clamp(90px, 10vw, 135px);
+  height: clamp(90px, 10vw, 135px);
   object-fit: cover;
-  border-radius: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transition: transform 0.3s ease;
+  border-radius: 24px;
+  border: 2.5px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .hero-logo:hover {
@@ -95,9 +95,7 @@ button { cursor: pointer; }
     gap: 16px;
   }
   .hero-logo {
-    width: 54px;
-    height: 54px;
-    border-radius: 12px;
+    border-radius: 18px;
   }
 }
 
