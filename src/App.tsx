@@ -463,6 +463,13 @@ function generateCardBackdropStyle(gameId: string) {
   };
 }
 
+function getGameHeaderColor(gameId: string) {
+  const rand = getSeededRandom(gameId);
+  const shuffledColors = [...BORDER_PALETTE].sort(() => rand() - 0.5);
+  return shuffledColors[0];
+}
+
+
 function useContainerWidth(ref: React.RefObject<HTMLElement | null>) {
   const [width, setWidth] = useState<number>(0);
 
@@ -589,37 +596,37 @@ function MatchCardColumn({
   }, [awayScorers]);
 
   const kickoffStatus = getKickoffStatus(game, now);
-
-  const homeLong = normalizeTeam(home).length > 13;
-  const awayLong = normalizeTeam(away).length > 13;
+  const headerColor = useMemo(() => getGameHeaderColor(game.id), [game.id]);
+  const innerBackdropStyle = useMemo(() => generateCardBackdropStyle(game.id + "-inner"), [game.id]);
 
   return (
     <>
-      <div className="match-badges">
-        {kickoffStatus.type !== "upcoming" && (
-          <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
-        )}
-        {game.fallback_source === "yle" ? <span className="sync-pill">EI SYNKATTU</span> : null}
-      </div>
-
-      <div className="top-ribbon">
+      <div className="top-ribbon" style={{ "--header-bg": headerColor } as React.CSSProperties}>
         <span className="venue-name">{infoLabel || "Kisapaikka"}</span>
-        {channels.length ? (
-          <span className="channel-pills">
-            {channels.map((channel) => <span className={clsx("channel-pill", channelClass(channel))} key={channel}>{channel}</span>)}
-          </span>
-        ) : null}
+        <div className="header-meta-row">
+          {kickoffStatus.type !== "upcoming" && (
+            <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
+          )}
+          {channels.length ? (
+            <span className="channel-pills">
+              {channels.map((channel) => (
+                <span className={clsx("channel-pill", channelClass(channel))} key={channel}>
+                  {channel}
+                </span>
+              ))}
+            </span>
+          ) : null}
+          {game.fallback_source === "yle" ? <span className="sync-pill">EI SYNKATTU</span> : null}
+        </div>
       </div>
 
       <div className="match-stage">
-        <div className="match-stage-layout">
-          <div className="match-inline">
-            <div className="inline-team">
-              {homeTeam?.flag ? <img className="inline-flag home-flag" src={homeTeam.flag} alt="" /> : null}
-              <div className={clsx("inline-name-wrap", { "has-marquee": homeLong })}>
-                <span className={clsx("inline-name", { marquee: homeLong })}>{normalizeTeam(home)}</span>
-              </div>
-            </div>
+        <div className="score-row-card-wrap">
+          <div className="score-row-card-backdrop" style={innerBackdropStyle} />
+          <div className="score-row-card-body">
+            {homeTeam?.flag ? (
+              <img className="inline-flag home-flag" src={homeTeam.flag} alt="" />
+            ) : null}
 
             <div className="inline-center-block">
               {kickoffStatus.type === "live" ? (
@@ -641,17 +648,19 @@ function MatchCardColumn({
               )}
             </div>
 
-            <div className="inline-team">
-              {awayTeam?.flag ? <img className="inline-flag away-flag" src={awayTeam.flag} alt="" /> : null}
-              <div className={clsx("inline-name-wrap", { "has-marquee": awayLong })}>
-                <span className={clsx("inline-name", { marquee: awayLong })}>{normalizeTeam(away)}</span>
-              </div>
+            {awayTeam?.flag ? (
+              <img className="inline-flag away-flag" src={awayTeam.flag} alt="" />
+            ) : null}
+
+            <div className="match-stage-group-label">
+              {stageLabel(game)}
             </div>
           </div>
+        </div>
 
-          <div className="match-stage-group-label">
-            {stageLabel(game)}
-          </div>
+        <div className="team-names-row">
+          <div className="team-name home">{normalizeTeam(home)}</div>
+          <div className="team-name away">{normalizeTeam(away)}</div>
         </div>
       </div>
 
