@@ -292,15 +292,35 @@ export function normalizeScorerName(name: string): string {
   return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 
-export function parseScorers(value: string) {
+export type ParsedScorer = {
+  name: string;
+  isOwnGoal: boolean;
+};
+
+export function parseScorers(value: string): ParsedScorer[] {
   if (!value || value === "null") return [];
   return value
     .replace(/[{}“”"]/g, "")
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean)
-    .map((entry) => entry.replace(/\s+\d+'\s*$/g, "").trim())
-    .map(normalizeScorerName);
+    .map((entry) => {
+      // Check for own goal indicators: (OG), (o.g.), (og), (om), own goal, oma maali
+      const isOwnGoal = /(?:^|[^a-zA-Z])(og|o\.g\.|om|own\s*goal|oma\s*maali)(?:[^a-zA-Z]|$)/i.test(entry);
+      
+      // Strip the own goal indicator out of the name
+      let cleanEntry = entry.replace(/\s*\([^)]*(og|o\.g\.|om|own\s*goal|oma\s*maali)[^)]*\)/gi, "").trim();
+      cleanEntry = cleanEntry.replace(/(?:^|[^a-zA-Z])(og|o\.g\.|om|own\s*goal|oma\s*maali)(?:[^a-zA-Z]|$)/gi, "").trim();
+      
+      // Strip minutes (e.g. "D. Bobadilla 7'" -> "D. Bobadilla")
+      // Supporting standard minutes, injury time (e.g. 45'+5', 90'+8', 90+2')
+      const nameOnly = cleanEntry.replace(/\s*\b\d+'?(?:\+\d+'?)?\s*$/g, "").trim();
+      
+      return {
+        name: normalizeScorerName(nameOnly),
+        isOwnGoal,
+      };
+    });
 }
 
 export function finlandClockDate(game: ApiGame) {
@@ -379,14 +399,18 @@ export function archivedMatch(game: ApiGame) {
 export function scorerTable(games: ApiGame[]) {
   const counts = new Map<string, { goals: number; teamId: string }>();
   games.forEach((game) => {
-    parseScorers(game.home_scorers).forEach((name) => {
+    parseScorers(game.home_scorers).forEach((scorer) => {
+      if (scorer.isOwnGoal) return;
+      const name = scorer.name;
       const current = counts.get(name);
       counts.set(name, {
         goals: (current?.goals ?? 0) + 1,
         teamId: game.home_team_id,
       });
     });
-    parseScorers(game.away_scorers).forEach((name) => {
+    parseScorers(game.away_scorers).forEach((scorer) => {
+      if (scorer.isOwnGoal) return;
+      const name = scorer.name;
       const current = counts.get(name);
       counts.set(name, {
         goals: (current?.goals ?? 0) + 1,

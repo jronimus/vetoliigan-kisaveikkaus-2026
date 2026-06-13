@@ -468,15 +468,23 @@ function MatchCard({
   }
 
   const homeLines = useMemo(() => {
-    const counts: Record<string, number> = {};
-    homeScorers.forEach((name) => { counts[name] = (counts[name] ?? 0) + 1; });
-    return Object.entries(counts).map(([name, count]) => count > 1 ? `${name} x${count}` : name);
+    const counts: Record<string, { count: number; isOwnGoal: boolean }> = {};
+    homeScorers.forEach((scorer) => {
+      const display = scorer.isOwnGoal ? `${scorer.name} (om)` : scorer.name;
+      const current = counts[display] || { count: 0, isOwnGoal: scorer.isOwnGoal };
+      counts[display] = { count: current.count + 1, isOwnGoal: scorer.isOwnGoal };
+    });
+    return Object.entries(counts).map(([display, item]) => item.count > 1 ? `${display} x${item.count}` : display);
   }, [homeScorers]);
 
   const awayLines = useMemo(() => {
-    const counts: Record<string, number> = {};
-    awayScorers.forEach((name) => { counts[name] = (counts[name] ?? 0) + 1; });
-    return Object.entries(counts).map(([name, count]) => count > 1 ? `${name} x${count}` : name);
+    const counts: Record<string, { count: number; isOwnGoal: boolean }> = {};
+    awayScorers.forEach((scorer) => {
+      const display = scorer.isOwnGoal ? `${scorer.name} (om)` : scorer.name;
+      const current = counts[display] || { count: 0, isOwnGoal: scorer.isOwnGoal };
+      counts[display] = { count: current.count + 1, isOwnGoal: scorer.isOwnGoal };
+    });
+    return Object.entries(counts).map(([display, item]) => item.count > 1 ? `${display} x${item.count}` : display);
   }, [awayScorers]);
 
   const kickoffStatus = getKickoffStatus(game, now);
