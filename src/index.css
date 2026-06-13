@@ -709,30 +709,30 @@ img.avatar {
 }
 
 .home-flag {
-  border-radius: 16px 2px 16px 16px;
+  border-radius: 0 14px 0 14px;
 }
 
 .away-flag {
-  border-radius: 2px 16px 16px 16px;
+  border-radius: 0 14px 0 14px;
 }
 
 .inline-center-block {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 142px;
+  min-width: 116px;
 }
 
 .score-capsule {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 72px;
-  border-radius: 9999px;
-  padding: 0 20px;
+  height: 58px;
+  border-radius: 10px;
+  padding: 0 14px;
   font-family: "Bebas Neue", Impact, sans-serif;
   font-size: 42px;
-  min-width: 142px;
+  min-width: 116px;
   box-sizing: border-box;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -754,13 +754,13 @@ img.avatar {
 .score-capsule.upcoming {
   background-color: #ffffff;
   color: #000000;
-  font-size: 38px;
+  font-size: 32px;
 }
 
 .score-divider-line {
   width: 1px;
   height: 100%;
-  margin: 0 14px;
+  margin: 0 10px;
 }
 
 .live .score-divider-line {
@@ -773,7 +773,7 @@ img.avatar {
 
 .score-num {
   font-family: "Alfa Slab One", serif;
-  font-size: 72px;
+  font-size: 56px;
   font-weight: 900;
   line-height: 0.85;
   display: flex;
