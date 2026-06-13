@@ -424,16 +424,13 @@ img.avatar {
   position: relative;
   width: 100%;
   box-sizing: border-box;
-  padding: 2.5px;
-  border-radius: 20px;
+  padding: 12px;
+  border-radius: 30px;
   background: conic-gradient(from 45deg, 
-    #ff2b17 0%, 
-    #efff19 15%, 
-    #0ad23f 30%, 
-    #1de8d6 50%, 
-    #1d56eb 70%, 
-    #ff2bb7 85%, 
-    #ff2b17 100%
+    #ff2b17 0% 25%,
+    #1de8d6 25% 50%,
+    #1d56eb 50% 75%,
+    #efff19 75% 100%
   );
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 0 20px rgba(29, 86, 235, 0.05);
   display: flex;
@@ -446,9 +443,7 @@ img.avatar {
   min-width: 0;
   padding: 12px;
   border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(161, 0, 0, 0.08), transparent 40%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.96), rgba(18, 18, 18, 0.98));
+  background: #000000;
   border: none;
   z-index: 2;
   display: flex;
