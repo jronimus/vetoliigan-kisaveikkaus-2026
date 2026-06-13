@@ -814,15 +814,6 @@ function MatchSections({
   const M = Math.min(5, Math.max(1, Math.floor(activeWidth / 296)));
 
   function renderGamesFlow(flatGames: ApiGame[]) {
-    // Find the first game ID of each day in flatGames
-    const firstGameIdOfDay = new Map<string, string>();
-    flatGames.forEach((game) => {
-      const label = dateLabel(game);
-      if (!firstGameIdOfDay.has(label)) {
-        firstGameIdOfDay.set(label, game.id);
-      }
-    });
-
     // Chunk the flat games into rows of max size M
     const rows = chunkArray(flatGames, M);
 
@@ -836,7 +827,17 @@ function MatchSections({
             <div className="match-row-flow" key={rowIdx}>
               {groups.map((chunk: ApiGame[], chunkIdx: number) => {
                 const dayLabel = dateLabel(chunk[0]);
-                const isFirstGameOfDay = chunk[0].id === firstGameIdOfDay.get(dayLabel);
+                
+                // Check if this day continues from the previous row
+                let isContinuation = false;
+                if (rowIdx > 0 && chunkIdx === 0) {
+                  const prevRow = rows[rowIdx - 1];
+                  const lastGameOfPrevRow = prevRow[prevRow.length - 1];
+                  if (dateLabel(lastGameOfPrevRow) === dayLabel) {
+                    isContinuation = true;
+                  }
+                }
+                const displayLabel = isContinuation ? `${dayLabel} (jatkuu)` : dayLabel;
                 
                 return (
                   <div
@@ -848,11 +849,8 @@ function MatchSections({
                     }}
                     key={chunkIdx}
                   >
-                    <div
-                      className="match-day-header"
-                      style={{ visibility: isFirstGameOfDay ? "visible" : "hidden" }}
-                    >
-                      {dayLabel}
+                    <div className="match-day-header">
+                      {displayLabel}
                     </div>
                     <MatchGroupCard
                       games={chunk}
