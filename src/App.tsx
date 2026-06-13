@@ -1020,6 +1020,27 @@ export default function App() {
             return localMatch;
           }
 
+          // Check if there are any predictions in seed (from local code) that are missing from serverData
+          const missingPredictions = seed.predictions.filter(
+            (seedPred) => !serverData.predictions.some((srvPred) => srvPred.matchId === seedPred.matchId)
+          );
+
+          if (missingPredictions.length > 0) {
+            const mergedPredictions = [...serverData.predictions, ...missingPredictions];
+            const mergedPlayerState = {
+              ...serverData,
+              predictions: mergedPredictions,
+            };
+            if (seed.name === currentName) {
+              try {
+                await setDoc(ref, mergedPlayerState, { merge: true });
+              } catch (err) {
+                console.error("Failed to merge missing predictions to Firestore:", err);
+              }
+            }
+            return mergedPlayerState;
+          }
+
           return serverData;
         } catch (err: any) {
           console.warn(`Could not fetch data for ${seed.name}:`, err);

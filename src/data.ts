@@ -54,6 +54,7 @@ export const SEEDED_PLAYERS: PlayerState[] = [
     predictions: [
       { matchId: "1", home: 3, away: 0, locked: true },
       { matchId: "2", home: 2, away: 2, locked: true },
+      { matchId: "7", home: 2, away: 1, locked: true },
     ],
     bonus: { champion: "", topScorer: "", surprise: "", flop: "" },
   },
