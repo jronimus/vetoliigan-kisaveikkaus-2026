@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { LogIn, LogOut, Trophy } from "lucide-react";
 import clsx from "clsx";
 import joniLogo from "./assets/joni-logo.png";
+import appLogo from "./assets/logo.png";
 
 export type GameStatus = "upcoming" | "live" | "finished";
 import { auth, db, firebaseEnabled, provider } from "./firebase";
@@ -1155,9 +1156,12 @@ export default function App() {
       </div>
 
       <header className="hero">
-        <div className="hero-copy-wrap">
-          <div className="eyebrow">Vetoliigan kisaveikkaus 2026</div>
-          <h1>Kisataulu</h1>
+        <div className="hero-header-row">
+          <img src={appLogo} alt="Vetoliiga Logo" className="hero-logo" />
+          <div className="hero-copy-wrap">
+            <div className="eyebrow">Vetoliigan kisaveikkaus 2026</div>
+            <h1>Kisataulu</h1>
+          </div>
         </div>
       </header>
 

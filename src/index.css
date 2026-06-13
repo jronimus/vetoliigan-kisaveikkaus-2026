@@ -69,6 +69,38 @@ button { cursor: pointer; }
 
 .hero-copy-wrap { max-width: 680px; }
 
+.hero-header-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 0;
+}
+
+.hero-logo {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease;
+}
+
+.hero-logo:hover {
+  transform: scale(1.05) rotate(2deg);
+}
+
+@media (max-width: 580px) {
+  .hero-header-row {
+    gap: 16px;
+  }
+  .hero-logo {
+    width: 54px;
+    height: 54px;
+    border-radius: 12px;
+  }
+}
+
 .eyebrow,
 .bonus-timing,
 .group-tag,
