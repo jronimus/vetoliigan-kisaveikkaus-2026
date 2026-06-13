@@ -420,6 +420,25 @@ img.avatar {
   overflow: visible;
 }
 
+.match-card-border-wrap {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 2.5px;
+  border-radius: 20px;
+  background: conic-gradient(from 45deg, 
+    #ff2b17 0%, 
+    #efff19 15%, 
+    #0ad23f 30%, 
+    #1de8d6 50%, 
+    #1d56eb 70%, 
+    #ff2bb7 85%, 
+    #ff2b17 100%
+  );
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 0 20px rgba(29, 86, 235, 0.05);
+  display: flex;
+}
+
 .match-card {
   position: relative;
   overflow: hidden;
@@ -429,29 +448,11 @@ img.avatar {
   border-radius: 18px;
   background:
     linear-gradient(180deg, rgba(161, 0, 0, 0.08), transparent 40%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.95), rgba(18, 18, 18, 0.96));
-  border: 2px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  z-index: 2; /* sits above the shadows */
-}
-
-.match-card-shadow {
-  position: absolute;
-  inset: 0;
-  border-radius: 18px;
-  pointer-events: none;
-}
-
-.match-card-shadow-red {
-  background: var(--accent-red);
-  transform: translate(4px, 4px); /* offset down and to the right */
-  z-index: 1; /* directly under card */
-}
-
-.match-card-shadow-green {
-  background: var(--accent-green);
-  transform: translate(8px, 8px); /* offset down and to the right */
-  z-index: 0; /* below red */
+    linear-gradient(180deg, rgba(0, 0, 0, 0.96), rgba(18, 18, 18, 0.98));
+  border: none;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
 }
 
 .match-status {

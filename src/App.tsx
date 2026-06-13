@@ -493,9 +493,7 @@ function MatchCard({
   const awayLong = normalizeTeam(away).length > 13;
 
   return (
-    <div className="match-card-wrapper">
-      <div className="match-card-shadow match-card-shadow-red" />
-      <div className="match-card-shadow match-card-shadow-green" />
+    <div className="match-card-border-wrap">
       <article className="match-card">
         <div className="match-badges">
           <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
