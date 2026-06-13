@@ -91,13 +91,21 @@ button { cursor: pointer; }
 
 @media (max-width: 580px) {
   .hero-header-row {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    text-align: center;
-    gap: 16px;
+    text-align: left;
+    gap: 12px;
+    width: 100%;
   }
   .hero-logo {
+    width: clamp(75px, 20vw, 110px);
+    height: clamp(75px, 20vw, 110px);
     border-radius: 18px;
+    flex-shrink: 0;
+  }
+  .hero-copy-wrap {
+    flex: 1;
+    min-width: 0;
   }
 }
 
@@ -1256,6 +1264,11 @@ img.avatar {
 }
 
 @media (max-width: 1320px) {
+  .app-shell {
+    padding-top: 0;
+    overflow: visible;
+  }
+
   .layout {
     grid-template-columns: 1fr;
   }
@@ -1315,6 +1328,62 @@ img.avatar {
 
   .desktop-only-auth {
     display: none !important;
+  }
+
+  .mobile-top-user-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+  }
+
+  .mobile-user-points {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent-yellow);
+    background: rgba(239, 255, 25, 0.1);
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(239, 255, 25, 0.2);
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .mobile-user-points:hover {
+    background: rgba(239, 255, 25, 0.2);
+  }
+
+  .points-tooltip {
+    position: absolute;
+    top: 52px;
+    right: 0;
+    background: var(--accent-blue);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    animation: fadeInOut 5s forwards;
+    z-index: 1000;
+  }
+
+  .points-tooltip::after {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    right: 54px;
+    border: 6px solid transparent;
+    border-bottom-color: var(--accent-blue);
+  }
+
+  @keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(-5px); }
+    10% { opacity: 1; transform: translateY(0); }
+    90% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-5px); display: none; }
   }
 }
 

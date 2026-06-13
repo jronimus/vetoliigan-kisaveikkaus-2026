@@ -938,6 +938,7 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<{ status: "idle" | "loading" | "success" | "error"; message?: string }>({
     status: firebaseEnabled ? "loading" : "idle",
   });
+  const [showPointsHint, setShowPointsHint] = useState(true);
 
   async function loadCup() {
     try {
@@ -970,6 +971,13 @@ export default function App() {
     if (!firebaseEnabled || !auth) return;
     return onAuthStateChanged(auth, setUser);
   }, []);
+
+  useEffect(() => {
+    if (currentName) {
+      const timer = setTimeout(() => setShowPointsHint(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentName]);
 
   useEffect(() => {
     if (!firebaseEnabled || !db || !currentName) {
@@ -1046,6 +1054,9 @@ export default function App() {
   }, [currentName]);
 
   const table = useMemo(() => standings(players, games), [players, games]);
+  const myPoints = useMemo(() => {
+    return table.find((row) => row.name === currentName)?.points ?? 0;
+  }, [table, currentName]);
   const scorers = useMemo(() => scorerTable(games), [games]);
   const scorerRanks = useMemo(() => {
     const ranks = new Map<string, number>();
@@ -1107,12 +1118,36 @@ export default function App() {
 
   async function signIn() {
     if (firebaseEnabled && auth && provider) {
-      await signInWithPopup(auth, provider);
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (err) {
+        console.warn("Firebase sign in failed, using mock user for dev:", err);
+        setUser({
+          uid: "mock-joni",
+          displayName: "Joni",
+          email: "joni@example.com",
+          photoURL: joniLogo,
+        } as any);
+      }
+    } else {
+      setUser({
+        uid: "mock-joni",
+        displayName: "Joni",
+        email: "joni@example.com",
+        photoURL: joniLogo,
+      } as any);
     }
   }
 
   async function signOutUser() {
-    if (firebaseEnabled && auth) await signOut(auth);
+    if (firebaseEnabled && auth) {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.error("Firebase sign out failed:", err);
+      }
+    }
+    setUser(null);
   }
 
   if (denied) {
@@ -1134,34 +1169,47 @@ export default function App() {
 
       {/* Mobile Top Bar */}
       <div className="mobile-top-bar">
-        <div className="mobile-top-left">
-          {currentName ? (
-            <div className="mobile-auth-logged">
-              {user?.photoURL ? (
-                <img src={user.photoURL} alt="" className="avatar avatar-img" referrerPolicy="no-referrer" onClick={signOutUser} title="Kirjaudu ulos" />
-              ) : (
-                <span className="avatar" onClick={signOutUser} title="Kirjaudu ulos">{(currentName ?? "?").slice(0, 1)}</span>
-              )}
-            </div>
-          ) : (
-            <button className="primary-btn compact" onClick={signIn}><LogIn size={14} /> Kirjaudu</button>
-          )}
-        </div>
-
         <nav className="mobile-primary-nav">
           <button className={clsx("mobile-nav-link", { active: mainView === "matches" })} onClick={() => setMainView("matches")}>Ottelut</button>
           <button className={clsx("mobile-nav-link", { active: mainView === "tables" })} onClick={() => setMainView("tables")}>Taulukot</button>
         </nav>
 
         <div className="mobile-top-right">
-          <button className="mobile-jump-btn" onClick={() => document.getElementById('points-table-anchor')?.scrollIntoView({ behavior: 'smooth' })}>
-            Pistetaulukkoon 
-            <div className="arrow-circle">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="var(--accent-green)">
-                <path d="M4 8 h16 l-8 10 z" stroke="var(--accent-green)" strokeWidth="2" strokeLinejoin="round" />
-              </svg>
+          {currentName ? (
+            <div className="mobile-top-user-wrap">
+              {showPointsHint && (
+                <div className="points-tooltip">
+                  Klikkaa tästä nähdäksesi pistetaulukon!
+                </div>
+              )}
+              <span 
+                className="mobile-user-points"
+                onClick={() => document.getElementById('points-table-anchor')?.scrollIntoView({ behavior: 'smooth' })}
+              >
+                {myPoints} p
+              </span>
+              {user?.photoURL ? (
+                <img 
+                  src={user.photoURL} 
+                  alt="" 
+                  className="avatar avatar-img" 
+                  referrerPolicy="no-referrer" 
+                  onClick={signOutUser} 
+                  title="Kirjaudu ulos" 
+                />
+              ) : (
+                <span 
+                  className="avatar" 
+                  onClick={signOutUser} 
+                  title="Kirjaudu ulos"
+                >
+                  {(currentName ?? "?").slice(0, 1)}
+                </span>
+              )}
             </div>
-          </button>
+          ) : (
+            <button className="primary-btn compact" onClick={signIn}><LogIn size={14} /> Kirjaudu</button>
+          )}
         </div>
       </div>
 
