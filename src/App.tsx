@@ -411,6 +411,96 @@ function channelClass(channel: string) {
   return "";
 }
 
+const BORDER_PALETTE = [
+  "#ff2b17", // Red
+  "#efff19", // Yellow
+  "#0ad23f", // Green
+  "#1de8d6", // Cyan
+  "#1d56eb", // Blue
+  "#ff2bb7", // Pink
+  "#7f00ff", // Purple
+  "#ff9800", // Orange
+];
+
+function getSeededRandom(seedStr: string) {
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return function() {
+    const x = Math.sin(hash++) * 10000;
+    return x - Math.floor(x);
+  };
+}
+
+function generateCardBlobs(gameId: string) {
+  const rand = getSeededRandom(gameId);
+  const blobs = [];
+  
+  // Left blob
+  const leftColor = BORDER_PALETTE[Math.floor(rand() * BORDER_PALETTE.length)];
+  const leftHeight = Math.floor(rand() * 40) + 70; // 70 to 110px
+  const leftWidth = Math.floor(rand() * 20) + 25; // 25 to 45px
+  const leftTop = Math.floor(rand() * 30) + 25; // 25% to 55%
+  blobs.push({
+    style: {
+      position: "absolute" as const,
+      left: `-${leftWidth / 2}px`,
+      top: `${leftTop}%`,
+      width: `${leftWidth}px`,
+      height: `${leftHeight}px`,
+      borderRadius: "50%",
+      backgroundColor: leftColor,
+      zIndex: 1,
+      filter: "blur(2px)",
+    }
+  });
+
+  // Right blob
+  const rightColor = BORDER_PALETTE[Math.floor(rand() * BORDER_PALETTE.length)];
+  const rightHeight = Math.floor(rand() * 40) + 70; // 70 to 110px
+  const rightWidth = Math.floor(rand() * 20) + 25; // 25 to 45px
+  const rightTop = Math.floor(rand() * 30) + 25; // 25% to 55%
+  blobs.push({
+    style: {
+      position: "absolute" as const,
+      right: `-${rightWidth / 2}px`,
+      top: `${rightTop}%`,
+      width: `${rightWidth}px`,
+      height: `${rightHeight}px`,
+      borderRadius: "50%",
+      backgroundColor: rightColor,
+      zIndex: 1,
+      filter: "blur(2px)",
+    }
+  });
+
+  // Bottom blobs (1 or 2)
+  const numBottom = Math.floor(rand() * 2) + 1; // 1 or 2 bottom blobs
+  for (let i = 0; i < numBottom; i++) {
+    const bottomColor = BORDER_PALETTE[Math.floor(rand() * BORDER_PALETTE.length)];
+    const bottomWidth = Math.floor(rand() * 60) + 80; // 80 to 140px
+    const bottomHeight = Math.floor(rand() * 25) + 30; // 30 to 55px
+    const bottomLeft = Math.floor(rand() * 40) + 20 + (i * 25); // spread them out
+    blobs.push({
+      style: {
+        position: "absolute" as const,
+        bottom: `-${bottomHeight / 2}px`,
+        left: `${bottomLeft}%`,
+        transform: "translateX(-50%)",
+        width: `${bottomWidth}px`,
+        height: `${bottomHeight}px`,
+        borderRadius: "50%",
+        backgroundColor: bottomColor,
+        zIndex: 1,
+        filter: "blur(2px)",
+      }
+    });
+  }
+
+  return blobs;
+}
+
 function MatchCard({
   game,
   teams,
@@ -492,8 +582,13 @@ function MatchCard({
   const homeLong = normalizeTeam(home).length > 13;
   const awayLong = normalizeTeam(away).length > 13;
 
+  const blobs = useMemo(() => generateCardBlobs(game.id), [game.id]);
+
   return (
     <div className="match-card-border-wrap">
+      {blobs.map((blob, idx) => (
+        <div key={idx} style={blob.style} className="card-border-blob" />
+      ))}
       <article className="match-card">
         <div className="match-badges">
           <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
