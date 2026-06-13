@@ -4,7 +4,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { LogIn, LogOut, Trophy } from "lucide-react";
 import clsx from "clsx";
 import joniLogo from "./assets/joni-logo.png";
-import appLogo from "./assets/logo.png";
+import appLogo from "./assets/logo-inverted.png";
 
 export type GameStatus = "upcoming" | "live" | "finished";
 import { auth, db, firebaseEnabled, provider } from "./firebase";
