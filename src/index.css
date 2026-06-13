@@ -449,7 +449,7 @@ img.avatar {
   background: #000000;
   border: none;
   z-index: 2;
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.8), 0 4px 16px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 10px 16px -5px rgba(0, 0, 0, 0.95);
   display: flex;
   flex-direction: column;
 }
