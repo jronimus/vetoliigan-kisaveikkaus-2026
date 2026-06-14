@@ -626,13 +626,13 @@ img.avatar {
 .channel-pill {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
-  padding: 0 8px;
-  border-radius: 6px;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: 5px;
   background: rgba(0, 0, 0, 0.12);
   color: #ffffff;
   font-family: "Space Grotesk", sans-serif;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -653,24 +653,26 @@ img.avatar {
   background: transparent;
 }
 
+
 .score-row-card-wrap {
   position: relative;
   width: 100%;
   box-sizing: border-box;
-  padding: 0 6px 6px 6px;
-  border-radius: 0 0 20px 20px;
+  padding: 6px 6px 6px 6px;
+  border-radius: 12px;
   background: #000000;
   display: flex;
   overflow: visible;
   margin-bottom: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.85), 0 4px 8px -2px rgba(0, 0, 0, 0.7);
 }
 
 .score-row-card-backdrop {
   position: absolute;
   inset: 0;
-  border-radius: 0 0 20px 20px;
+  border-radius: 12px;
   z-index: 1;
+  background: conic-gradient(from 0deg, #6800E4 0deg 90deg, #8B0404 90deg 180deg, #B9D637 180deg 270deg, #A180EA 270deg 360deg);
 }
 
 .score-row-card-body {
@@ -678,7 +680,7 @@ img.avatar {
   overflow: visible;
   width: 100%;
   padding: 8px 12px;
-  border-radius: 0 0 14px 14px;
+  border-radius: 6px;
   background: #000000;
   z-index: 2;
   display: grid;
@@ -718,8 +720,9 @@ img.avatar {
 
 .inline-center-block {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   min-width: 90px;
 }
 
@@ -728,7 +731,7 @@ img.avatar {
   align-items: center;
   justify-content: center;
   height: 62px;
-  border-radius: 10px;
+  border-radius: 0 0 16px 16px;
   padding: 0 10px;
   font-family: "Bebas Neue", Impact, sans-serif;
   font-size: 48px;
@@ -737,26 +740,70 @@ img.avatar {
   letter-spacing: 0.02em;
   text-transform: uppercase;
   overflow: hidden;
-  margin-top: -14px;
-  margin-bottom: -14px;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* Status badge sits above score capsule, smoothly connected */
+.match-status-badge-above {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 3px 10px;
+  border-radius: 6px 6px 0 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: #1a1a22;
+  color: #9090a8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
+  box-sizing: border-box;
+}
+
+.match-status-badge-above.upcoming {
+  background: #1a1a22;
+  color: #9090a8;
+}
+
+.match-status-badge-above.live {
+  background: var(--accent-green);
+  color: #000000;
+  animation: pulse-calm 2s infinite ease-in-out;
+  border-color: var(--accent-green);
+}
+
+.match-status-badge-above.finished {
+  background: #151515;
+  color: #666676;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .score-capsule.live {
   background-color: #5bf2d8;
   color: #000000;
   box-shadow: 0 0 16px rgba(91, 242, 216, 0.4);
+  border-radius: 0 0 16px 16px;
 }
 
 .score-capsule.finished {
   background-color: #000000;
   color: #ffffff;
   border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-top: none;
+  border-radius: 0 0 16px 16px;
 }
 
 .score-capsule.upcoming {
   background-color: #ffffff;
   color: #000000;
   font-size: 30px;
+  border-radius: 0 0 16px 16px;
 }
 
 .score-divider-line {
@@ -812,7 +859,7 @@ img.avatar {
   align-items: flex-start;
   width: 100%;
   padding: 0 4px;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .team-name {
@@ -823,6 +870,10 @@ img.avatar {
   text-transform: uppercase;
   letter-spacing: 0.02em;
   line-height: 1.2;
+  /* Always reserve 2 lines of height so all cards stay same height */
+  min-height: calc(1.2em * 2);
+  height: calc(1.2em * 2);
+  overflow: hidden;
 }
 
 .team-name.home {

@@ -604,9 +604,6 @@ function MatchCardColumn({
       <div className="top-ribbon" style={{ "--header-bg": headerColor } as React.CSSProperties}>
         <span className="venue-name">{infoLabel || "Kisapaikka"}</span>
         <div className="header-meta-row">
-          {kickoffStatus.type !== "upcoming" && (
-            <span className={clsx("match-status", kickoffStatus.type)}>{kickoffStatus.text}</span>
-          )}
           {channels.length ? (
             <span className="channel-pills">
               {channels.map((channel) => (
@@ -625,13 +622,16 @@ function MatchCardColumn({
 
       <div className="match-stage">
         <div className="score-row-card-wrap">
-          <div className="score-row-card-backdrop" style={innerBackdropStyle} />
+          <div className="score-row-card-backdrop" />
           <div className="score-row-card-body">
             {homeTeam?.flag ? (
               <img className="inline-flag home-flag" src={homeTeam.flag} alt="" />
             ) : null}
 
             <div className="inline-center-block">
+              <div className={clsx("match-status-badge-above", kickoffStatus.type)}>
+                {kickoffStatus.text}
+              </div>
               {kickoffStatus.type === "live" ? (
                 <div className="score-capsule live">
                   <span className="score-num">{parseScore(game.home_score)}</span>
