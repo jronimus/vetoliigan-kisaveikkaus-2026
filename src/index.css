@@ -679,13 +679,13 @@ img.avatar {
   position: relative;
   overflow: visible;
   width: 100%;
-  padding: 8px 12px;
+  padding: 12px 12px 8px 12px;
   border-radius: 6px;
   background: #000000;
   z-index: 2;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  align-items: center;
+  align-items: flex-end;
   justify-items: center;
 }
 
