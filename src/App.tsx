@@ -6,6 +6,12 @@ import clsx from "clsx";
 import joniLogo from "./assets/joni-logo.png";
 import appLogo from "./assets/logo-inverted.png";
 
+const backgroundImageModules = import.meta.glob<string>("./assets/wc26-backgrounds/*.{jpg,jpeg,png,webp}", {
+  eager: true,
+  import: "default",
+});
+const WC26_BACKGROUNDS = Object.values(backgroundImageModules);
+
 export type GameStatus = "upcoming" | "live" | "finished";
 import { auth, db, firebaseEnabled, provider } from "./firebase";
 import { TEAM_FI, SEEDED_PLAYERS, type BonusPicks, type PlayerName, type PlayerState, type Prediction } from "./data";
@@ -63,6 +69,14 @@ function saveLocal(players: PlayerState[]) {
 
 function normalizeTeam(name: string) {
   return TEAM_FI[name] ?? name;
+}
+
+const TEAM_HYPHENATION: Record<string, string> = {
+  Norsunluurannikko: ["Nor", "sun", "luu", "ran", "nik", "ko"].join("\u00ad"),
+};
+
+function hyphenatedTeamName(name: string) {
+  return TEAM_HYPHENATION[name] ?? name;
 }
 
 
@@ -254,10 +268,6 @@ function currentFirst(games: ApiGame[]) {
   });
 }
 
-function recentFirst(games: ApiGame[]) {
-  return [...games].sort((a, b) => kickoffMillis(b) - kickoffMillis(a));
-}
-
 function computeGroupTables(games: ApiGame[], teams: ApiTeam[]) {
   const groups = [...new Set(games.filter((game) => game.type === "group").map((game) => game.group))].sort((a, b) => a.localeCompare(b));
 
@@ -436,39 +446,38 @@ function getSeededRandom(seedStr: string) {
 function generateCardBackdropStyle(gameId: string) {
   const rand = getSeededRandom(gameId);
   
-  // Randomize boundary angles relative to 45deg standard.
-  const t1 = Math.floor(rand() * 40) + 115; // standard 135
-  const t2 = Math.floor(rand() * 40) + 205; // standard 225
-  const t3 = Math.floor(rand() * 40) + 295; // standard 315
-  
   // Shuffled colors from BORDER_PALETTE
   const shuffledColors = [...BORDER_PALETTE].sort(() => rand() - 0.5);
   const c1 = shuffledColors[0];
   const c2 = shuffledColors[1];
   const c3 = shuffledColors[2];
   const c4 = shuffledColors[3];
-
-  const gradient = `conic-gradient(from 45deg, 
-    ${c1} 0deg ${t1 - 45}deg, 
-    ${c2} ${t1 - 45}deg ${t2 - 45}deg, 
-    ${c3} ${t2 - 45}deg ${t3 - 45}deg, 
-    ${c4} ${t3 - 45}deg 360deg
-  )`;
+  
+  // Center point: cx, cy (30% to 70%)
+  const cx = Math.floor(rand() * 40) + 30;
+  const cy = Math.floor(rand() * 40) + 30;
+  
+  // Edge points: tx, ry, bx, ly (20% to 80%)
+  const tx = Math.floor(rand() * 60) + 20;
+  const ry = Math.floor(rand() * 60) + 20;
+  const bx = Math.floor(rand() * 60) + 20;
+  const ly = Math.floor(rand() * 60) + 20;
 
   return {
-    position: "absolute" as const,
-    inset: 0,
-    background: gradient,
-    zIndex: 1,
+    style: {
+      position: "absolute" as const,
+      inset: "0px",
+      width: "100%",
+      height: "100%",
+      zIndex: 1,
+    },
+    cx, cy,
+    tx, ry, bx, ly,
+    c1, c2, c3, c4,
   };
 }
 
-function getGameHeaderColor(gameId: string) {
-  const rand = getSeededRandom(gameId);
-  const shuffledColors = [...BORDER_PALETTE].sort(() => rand() - 0.5);
-  return shuffledColors[0];
-}
-
+type CardBackdrop = ReturnType<typeof generateCardBackdropStyle>;
 
 function useContainerWidth(ref: React.RefObject<HTMLElement | null>) {
   const [width, setWidth] = useState<number>(0);
@@ -526,6 +535,7 @@ function MatchCardColumn({
   players,
   currentPlayerName,
   setPlayers,
+  cardBackdrop,
 }: {
   game: ApiGame;
   teams: ApiTeam[];
@@ -533,6 +543,7 @@ function MatchCardColumn({
   players: PlayerState[];
   currentPlayerName?: PlayerName;
   setPlayers: (players: PlayerState[]) => void;
+  cardBackdrop: CardBackdrop;
 }) {
   const home = teamName(game, "home");
   const away = teamName(game, "away");
@@ -596,12 +607,34 @@ function MatchCardColumn({
   }, [awayScorers]);
 
   const kickoffStatus = getKickoffStatus(game, now);
-  const headerColor = useMemo(() => getGameHeaderColor(game.id), [game.id]);
-  const innerBackdropStyle = useMemo(() => generateCardBackdropStyle(game.id + "-inner"), [game.id]);
+  const bcol = useMemo(() => {
+    const rand = getSeededRandom(game.id + "-inner");
+    // Center point: cx, cy (30% to 70%)
+    const cx = Math.floor(rand() * 40) + 30;
+    const cy = Math.floor(rand() * 40) + 30;
+    // Edge points: tx, ry, bx, ly (20% to 80%)
+    const tx = Math.floor(rand() * 60) + 20;
+    const ry = Math.floor(rand() * 60) + 20;
+    const bx = Math.floor(rand() * 60) + 20;
+    const ly = Math.floor(rand() * 60) + 20;
+    return { cx, cy, tx, ry, bx, ly };
+  }, [game.id]);
 
   return (
     <>
-      <div className="top-ribbon" style={{ "--header-bg": headerColor } as React.CSSProperties}>
+      <div className="top-ribbon">
+        <div className="top-ribbon-color-backdrop" aria-hidden="true">
+          <svg
+            className="top-ribbon-color-svg"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            <path d={`M ${cardBackdrop.cx} ${cardBackdrop.cy} L ${cardBackdrop.tx} 0 L 0 0 L 0 ${cardBackdrop.ly} Z`} fill={cardBackdrop.c1} />
+            <path d={`M ${cardBackdrop.cx} ${cardBackdrop.cy} L 100 ${cardBackdrop.ry} L 100 0 L ${cardBackdrop.tx} 0 Z`} fill={cardBackdrop.c2} />
+            <path d={`M ${cardBackdrop.cx} ${cardBackdrop.cy} L ${cardBackdrop.bx} 100 L 100 100 L 100 ${cardBackdrop.ry} Z`} fill={cardBackdrop.c3} />
+            <path d={`M ${cardBackdrop.cx} ${cardBackdrop.cy} L 0 ${cardBackdrop.ly} L 0 100 L ${cardBackdrop.bx} 100 Z`} fill={cardBackdrop.c4} />
+          </svg>
+        </div>
         <span className="venue-name">{infoLabel || "Kisapaikka"}</span>
         <div className="header-meta-row">
           {channels.length ? (
@@ -620,60 +653,85 @@ function MatchCardColumn({
         </div>
       </div>
 
-      <div className="match-stage">
-        <div className="score-row-card-wrap">
-          <div className="score-row-card-backdrop" />
-          <div className="score-row-card-body">
-            {homeTeam?.flag ? (
-              <img className="inline-flag home-flag" src={homeTeam.flag} alt="" />
-            ) : null}
-
-            <div className="inline-center-block">
-              <div className={clsx("match-status-badge-above", kickoffStatus.type)}>
-                {kickoffStatus.text}
-              </div>
-              {kickoffStatus.type === "live" ? (
-                <div className="score-capsule live">
-                  <span className="score-num">{parseScore(game.home_score)}</span>
-                  <span className="score-divider-line" />
-                  <span className="score-num">{parseScore(game.away_score)}</span>
-                </div>
-              ) : kickoffStatus.type === "finished" ? (
-                <div className="score-capsule finished">
-                  <span className="score-num">{parseScore(game.home_score)}</span>
-                  <span className="score-divider-line" />
-                  <span className="score-num">{parseScore(game.away_score)}</span>
-                </div>
-              ) : (
-                <div className="score-capsule upcoming">
-                  <span className="score-time">{centerValue}</span>
-                </div>
-              )}
+      <div className="match-card-content-panel">
+        <div className="match-stage">
+          <div className="score-row-card-wrap">
+            <div className="score-row-card-backdrop-wrap">
+              <svg
+                className="score-row-card-backdrop"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                style={{
+                  position: "absolute",
+                  inset: "0px",
+                  width: "100%",
+                  height: "100%",
+                  zIndex: 1,
+                }}
+              >
+                <g>
+                  {/* Sector 1: Top-Left (Light Purple) */}
+                  <path d={`M ${bcol.cx} ${bcol.cy} L ${bcol.tx} 0 L 0 0 L 0 ${bcol.ly} Z`} fill="#A180EA" />
+                  {/* Sector 2: Top-Right (Dark Purple) */}
+                  <path d={`M ${bcol.cx} ${bcol.cy} L 100 ${bcol.ry} L 100 0 L ${bcol.tx} 0 Z`} fill="#6800E4" />
+                  {/* Sector 3: Bottom-Right (Red) */}
+                  <path d={`M ${bcol.cx} ${bcol.cy} L ${bcol.bx} 100 L 100 100 L 100 ${bcol.ry} Z`} fill="#8B0404" />
+                  {/* Sector 4: Bottom-Left (Yellow) */}
+                  <path d={`M ${bcol.cx} ${bcol.cy} L 0 ${bcol.ly} L 0 100 L ${bcol.bx} 100 Z`} fill="#B9D637" />
+                </g>
+              </svg>
             </div>
+            <div className="score-row-card-body">
+              {homeTeam?.flag ? (
+                <img className="inline-flag home-flag" src={homeTeam.flag} alt="" />
+              ) : null}
 
-            {awayTeam?.flag ? (
-              <img className="inline-flag away-flag" src={awayTeam.flag} alt="" />
-            ) : null}
+              <div className="inline-center-block">
+                <div className={clsx("match-status-badge-above", kickoffStatus.type)}>
+                  {kickoffStatus.text}
+                </div>
+                {kickoffStatus.type === "live" ? (
+                  <div className="score-capsule live">
+                    <span className="score-num">{parseScore(game.home_score)}</span>
+                    <span className="score-divider-line" />
+                    <span className="score-num">{parseScore(game.away_score)}</span>
+                  </div>
+                ) : kickoffStatus.type === "finished" ? (
+                  <div className="score-capsule finished">
+                    <span className="score-num">{parseScore(game.home_score)}</span>
+                    <span className="score-divider-line" />
+                    <span className="score-num">{parseScore(game.away_score)}</span>
+                  </div>
+                ) : (
+                  <div className="score-capsule upcoming">
+                    <span className="score-time">{centerValue}</span>
+                  </div>
+                )}
+              </div>
+
+              {awayTeam?.flag ? (
+                <img className="inline-flag away-flag" src={awayTeam.flag} alt="" />
+              ) : null}
+            </div>
+          </div>
+
+          <div className="team-names-row">
+            <div className="team-name home" lang="fi" aria-label={normalizeTeam(home)}>{hyphenatedTeamName(normalizeTeam(home))}</div>
+            <div className="team-name away" lang="fi" aria-label={normalizeTeam(away)}>{hyphenatedTeamName(normalizeTeam(away))}</div>
           </div>
         </div>
 
-        <div className="team-names-row">
-          <div className="team-name home">{normalizeTeam(home)}</div>
-          <div className="team-name away">{normalizeTeam(away)}</div>
+        <div className="scorer-strip-fixed">
+          {Array.from({ length: Math.max(5, Math.max(homeLines.length, awayLines.length)) }).map((_, i) => (
+            <div className="scorer-row-line" key={i}>
+              <span className="home-scorer-name">{homeLines[i] || ""}</span>
+              <span className="away-scorer-name">{awayLines[i] || ""}</span>
+            </div>
+          ))}
         </div>
-      </div>
 
-      <div className="scorer-strip-fixed">
-        {Array.from({ length: Math.max(5, Math.max(homeLines.length, awayLines.length)) }).map((_, i) => (
-          <div className="scorer-row-line" key={i}>
-            <span className="home-scorer-name">{homeLines[i] || ""}</span>
-            <span className="away-scorer-name">{awayLines[i] || ""}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="prediction-list">
-        {displayPlayers.map((player) => {
+        <div className="prediction-list">
+          {displayPlayers.map((player) => {
           const prediction = player.predictions.find((item) => item.matchId === game.id);
           const isSelf = player.name === currentPlayerName;
           const isOpen = !predictionLocked(game);
@@ -695,8 +753,8 @@ function MatchCardColumn({
           const points = prediction ? matchPoints(prediction, game) : 0;
           const pointsClass = !isOpen && prediction ? `points-${points}` : "";
 
-          return (
-            <div className={clsx("prediction-row", pointsClass)} key={player.name}>
+            return (
+              <div className={clsx("prediction-row", pointsClass)} key={player.name}>
               <strong className="pred-player-name">{player.name}</strong>
               <div className="pred-score-wrap">
                 {!isOpen ? (
@@ -728,9 +786,10 @@ function MatchCardColumn({
                   )
                 )}
               </div>
-            </div>
-          );
-        })}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </>
   );
@@ -751,11 +810,40 @@ function MatchGroupCard({
   currentPlayerName?: PlayerName;
   setPlayers: (players: PlayerState[]) => void;
 }) {
-  const backdropStyle = useMemo(() => generateCardBackdropStyle(games[0].id), [games[0]?.id]);
+  const b = useMemo(() => generateCardBackdropStyle(games[0].id), [games[0]?.id]);
+  const borderMaskId = `match-border-mask-${games[0].id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const mobileBorderStyle = {
+    "--card-border-c1": b.c1,
+    "--card-border-c2": b.c2,
+    "--card-border-c3": b.c3,
+    "--card-border-c4": b.c4,
+  } as React.CSSProperties;
 
   return (
-    <div className="match-card-border-wrap">
-      <div className="match-card-border-backdrop" style={backdropStyle} />
+    <div className="match-card-border-wrap" style={mobileBorderStyle}>
+      <svg
+        className="match-card-border-backdrop"
+        style={b.style}
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <mask id={borderMaskId} maskUnits="userSpaceOnUse">
+            <rect x="0" y="0" width="100" height="100" fill="white" />
+            <rect className="match-card-border-mask-cutout" x="2" y="2" width="96" height="96" rx="4" ry="4" fill="black" />
+          </mask>
+        </defs>
+        <g mask={`url(#${borderMaskId})`}>
+          {/* Sector 1: Top-Left */}
+          <path d={`M ${b.cx} ${b.cy} L ${b.tx} 0 L 0 0 L 0 ${b.ly} Z`} fill={b.c1} />
+          {/* Sector 2: Top-Right */}
+          <path d={`M ${b.cx} ${b.cy} L 100 ${b.ry} L 100 0 L ${b.tx} 0 Z`} fill={b.c2} />
+          {/* Sector 3: Bottom-Right */}
+          <path d={`M ${b.cx} ${b.cy} L ${b.bx} 100 L 100 100 L 100 ${b.ry} Z`} fill={b.c3} />
+          {/* Sector 4: Bottom-Left */}
+          <path d={`M ${b.cx} ${b.cy} L 0 ${b.ly} L 0 100 L ${b.bx} 100 Z`} fill={b.c4} />
+        </g>
+      </svg>
       <article className="match-card">
         <div className="match-card-columns">
           {games.map((game) => (
@@ -767,6 +855,7 @@ function MatchGroupCard({
                 players={players}
                 currentPlayerName={currentPlayerName}
                 setPlayers={setPlayers}
+                cardBackdrop={b}
               />
             </div>
           ))}
@@ -795,7 +884,7 @@ function MatchSections({
   const [visibleDaysCount, setVisibleDaysCount] = useState(7);
 
   const recentGames = currentFirst(visibleGames.filter((game) => !archivedMatch(game)));
-  const olderGames = recentFirst(visibleGames.filter((game) => archivedMatch(game)));
+  const olderGames = currentFirst(visibleGames.filter((game) => archivedMatch(game)));
 
   // Group recent games by date label
   const recentGroupedByDate = new Map<string, ApiGame[]>();
@@ -807,11 +896,6 @@ function MatchSections({
   const allRecentDays = [...recentGroupedByDate.entries()];
   const visibleRecentDays = allRecentDays.slice(0, visibleDaysCount);
   const hasMoreRecentDays = allRecentDays.length > visibleDaysCount;
-
-  // Flatten the visible recent games (maintaining date order)
-  const visibleRecentGames = useMemo(() => {
-    return visibleRecentDays.flatMap(([_, dayGames]) => dayGames);
-  }, [visibleRecentDays]);
 
   // Group older games by date label
   const olderGroupedByDate = new Map<string, ApiGame[]>();
@@ -832,6 +916,20 @@ function MatchSections({
   const activeWidth = containerWidth || (typeof window !== "undefined" ? window.innerWidth : 320);
   const isMobileLayout = activeWidth < 840;
   const M = isMobileLayout ? 1 : Math.min(5, Math.max(2, Math.floor(activeWidth / 296)));
+
+  // Keep "show more" day-based, but on desktop let the visible list borrow
+  // the next upcoming games so the final row does not stop one card short.
+  const visibleRecentGames = useMemo(() => {
+    const baseGames = visibleRecentDays.flatMap(([_, dayGames]) => dayGames);
+    if (isMobileLayout || !hasMoreRecentDays || baseGames.length === 0) return baseGames;
+
+    const remainder = baseGames.length % M;
+    if (remainder === 0) return baseGames;
+
+    const allRecentGames = allRecentDays.flatMap(([_, dayGames]) => dayGames);
+    const fillCount = M - remainder;
+    return [...baseGames, ...allRecentGames.slice(baseGames.length, baseGames.length + fillCount)];
+  }, [allRecentDays, hasMoreRecentDays, isMobileLayout, M, visibleRecentDays]);
 
   function renderGamesFlow(flatGames: ApiGame[]) {
     if (isMobileLayout) {
@@ -1151,6 +1249,13 @@ function GroupTables({ games, teams }: { games: ApiGame[]; teams: ApiTeam[] }) {
 
 export default function App() {
   const cached = loadCachedWorldCup();
+  const [pageBackground] = useState(() => {
+    if (!WC26_BACKGROUNDS.length) return undefined;
+    return WC26_BACKGROUNDS[Math.floor(Math.random() * WC26_BACKGROUNDS.length)];
+  });
+  const appShellStyle = pageBackground
+    ? ({ "--page-bg-image": `url(${pageBackground})` } as React.CSSProperties)
+    : undefined;
   const [games, setGames] = useState<ApiGame[]>(cached?.games ?? FALLBACK_GAMES);
   const [teams, setTeams] = useState<ApiTeam[]>(cached?.teams ?? FALLBACK_TEAMS);
   const [stadiums, setStadiums] = useState<ApiStadium[]>(cached?.stadiums ?? FALLBACK_STADIUMS);
@@ -1376,7 +1481,8 @@ export default function App() {
 
   if (denied) {
     return (
-      <main className="app-shell">
+      <main className="app-shell" style={appShellStyle}>
+        <div className="arena-backdrop" />
         <section className="main-stage denied">
           <h1>Ei pääsylistalla</h1>
           <p className="hero-copy">Tämä liiga on rajattu nimille Santeri, Sami, Ilpo ja Joni. Google-tilin etunimen täytyy olla yksi näistä.</p>
@@ -1388,7 +1494,16 @@ export default function App() {
 
   return (
     <>
-      <main className="app-shell">
+      <svg style={{ position: "absolute", left: "-9999px", top: "-9999px", width: "1px", height: "1px", pointerEvents: "none" }}>
+        <defs>
+          <filter id="wavy-border">
+            <feTurbulence type="fractalNoise" baseFrequency="0.002" numOctaves="1" result="noise" />
+            <feGaussianBlur in="noise" stdDeviation="5" result="smoothNoise" />
+            <feDisplacementMap in="SourceGraphic" in2="smoothNoise" scale="75" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+      </svg>
+      <main className="app-shell" style={appShellStyle}>
       <div className="arena-backdrop" />
 
       {/* Mobile Top Bar */}
@@ -1484,6 +1599,25 @@ export default function App() {
             Taulukot
           </button>
         </nav>
+        <section className="desktop-nav-auth">
+          <div className="auth-row">
+            <div className="user-pill">
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="" className="avatar avatar-img" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="avatar">{(currentName ?? "?").slice(0, 1)}</span>
+              )}
+              <div>
+                <strong>{currentName ?? "Vierailija"}</strong>
+              </div>
+            </div>
+            {currentName ? (
+              <button className="icon-btn" title="Kirjaudu ulos" onClick={signOutUser}><LogOut size={18} /></button>
+            ) : (
+              <button className="primary-btn" onClick={signIn}><LogIn size={16} /> Kirjaudu</button>
+            )}
+          </div>
+        </section>
       </div>
 
       <div className="layout">
@@ -1504,27 +1638,7 @@ export default function App() {
         </section>
 
         <aside className="sidebar">
-          <div id="points-table-anchor" style={{ position: "relative", top: "-60px" }}></div>
-          <section className="side-card auth-card desktop-only-auth">
-            <div className="auth-row">
-              <div className="user-pill">
-                {user?.photoURL ? (
-                  <img src={user.photoURL} alt="" className="avatar avatar-img" referrerPolicy="no-referrer" />
-                ) : (
-                  <span className="avatar">{(currentName ?? "?").slice(0, 1)}</span>
-                )}
-                <div>
-                  <strong>{currentName ?? "Vierailija"}</strong>
-                </div>
-              </div>
-              {currentName ? (
-                <button className="icon-btn" title="Kirjaudu ulos" onClick={signOutUser}><LogOut size={18} /></button>
-              ) : (
-                <button className="primary-btn" onClick={signIn}><LogIn size={16} /> Kirjaudu</button>
-              )}
-            </div>
-          </section>
-
+          <div id="points-table-anchor" style={{ position: "absolute", top: "-60px" }}></div>
           <section className="side-card">
             <div className="section-title"><h2>Pistetaulukko</h2><Trophy color="var(--accent-yellow)" /></div>
             {table.map((row, index) => (
@@ -1645,14 +1759,6 @@ export default function App() {
           </div>
         </div>
       </footer>
-      <svg style={{ position: "absolute", width: 0, height: 0, pointerEvents: "none" }}>
-        <defs>
-          <filter id="wavy-border">
-            <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="12" xChannelSelector="R" yChannelSelector="G" />
-          </filter>
-        </defs>
-      </svg>
     </>
   );
 }
