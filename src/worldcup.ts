@@ -444,8 +444,8 @@ export function isBonusLocked() {
 }
 
 export function normalizeTeamName(name: string): string {
-  let n = name.toLowerCase().trim();
-  n = n.replace(/ä/g, "a").replace(/ö/g, "o").replace(/å/g, "a").replace(/é/g, "e").replace(/ç/g, "c");
+  let n = stripAccents(name).toLowerCase().trim();
+  n = n.replace(/ä/g, "a").replace(/ö/g, "o").replace(/å/g, "a");
   n = n.replace(/[^a-z0-9]/g, " ");
   n = n.replace(/\s+/g, " ").trim();
   return n;

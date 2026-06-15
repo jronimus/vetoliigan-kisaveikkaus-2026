@@ -15,6 +15,7 @@ const WC26_BACKGROUNDS = Object.values(backgroundImageModules);
 export type GameStatus = "upcoming" | "live" | "finished";
 import { auth, db, firebaseEnabled, provider } from "./firebase";
 import { TEAM_FI, SEEDED_PLAYERS, type BonusPicks, type PlayerName, type PlayerState, type Prediction } from "./data";
+import { enrichGamesWithEspn } from "./espn";
 import { matchPoints, standings } from "./scoring";
 import { tvChannelsForGame } from "./tvSchedule";
 import {
@@ -212,7 +213,10 @@ const WEEKDAYS_FI = ["Sunnuntai", "Maanantai", "Tiistai", "Keskiviikko", "Torsta
 
 function getKickoffStatus(game: ApiGame, now: number) {
   if (isFinished(game)) return { text: "Päättynyt", type: "finished" };
-  if (isLive(game)) return { text: "Live", type: "live" };
+  if (isLive(game)) {
+    const elapsed = String(game.time_elapsed).trim();
+    return { text: elapsed && elapsed.toLowerCase() !== "live" ? elapsed : "Live", type: "live" };
+  }
 
   const kickoff = finlandClockDate(game);
   if (!kickoff) return { text: "Tulossa", type: "upcoming" };
@@ -1272,10 +1276,16 @@ export default function App() {
   async function loadCup() {
     try {
       const data = await fetchWorldCup();
-      setGames(data.games);
+      let gamesWithEspn = data.games;
+      try {
+        gamesWithEspn = await enrichGamesWithEspn(data.games);
+      } catch (err) {
+        console.warn("ESPN enrichment failed, using primary World Cup data:", err);
+      }
+      setGames(gamesWithEspn);
       setTeams(data.teams);
       setStadiums(data.stadiums);
-      saveCachedWorldCup(data);
+      saveCachedWorldCup({ ...data, games: gamesWithEspn });
     } catch {
       const cachedData = loadCachedWorldCup();
       if (cachedData?.games?.length) {
