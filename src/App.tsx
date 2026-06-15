@@ -259,12 +259,11 @@ function cityCountry(stadiums: ApiStadium[], game: ApiGame) {
   return location;
 }
 
-function currentFirst(games: ApiGame[]) {
+function chronologicalGames(games: ApiGame[]) {
   return [...games].sort((a, b) => {
-    const aLive = isLive(a) ? -1 : 0;
-    const bLive = isLive(b) ? -1 : 0;
-    if (aLive !== bLive) return aLive - bLive;
-    return kickoffMillis(a) - kickoffMillis(b);
+    const kickoffDiff = kickoffMillis(a) - kickoffMillis(b);
+    if (kickoffDiff !== 0) return kickoffDiff;
+    return Number(a.id) - Number(b.id);
   });
 }
 
@@ -883,8 +882,8 @@ function MatchSections({
   const visibleGames = games;
   const [visibleDaysCount, setVisibleDaysCount] = useState(7);
 
-  const recentGames = currentFirst(visibleGames.filter((game) => !archivedMatch(game)));
-  const olderGames = currentFirst(visibleGames.filter((game) => archivedMatch(game)));
+  const recentGames = chronologicalGames(visibleGames.filter((game) => !archivedMatch(game)));
+  const olderGames = chronologicalGames(visibleGames.filter((game) => archivedMatch(game)));
 
   // Group recent games by date label
   const recentGroupedByDate = new Map<string, ApiGame[]>();
@@ -1268,6 +1267,7 @@ export default function App() {
     status: firebaseEnabled ? "loading" : "idle",
   });
   const [showPointsHint, setShowPointsHint] = useState(true);
+  const pointsTableRef = useRef<HTMLElement | null>(null);
 
   async function loadCup() {
     try {
@@ -1466,6 +1466,16 @@ export default function App() {
       .map((p) => p.name);
   };
 
+  function scrollToPointsTable() {
+    setShowPointsHint(false);
+    const target = pointsTableRef.current;
+    if (!target) return;
+
+    const stickyOffset = window.matchMedia("(max-width: 1320px)").matches ? 68 : 16;
+    const top = target.getBoundingClientRect().top + window.scrollY - stickyOffset;
+    window.scrollTo({ top, behavior: "smooth" });
+  }
+
   async function signIn() {
     if (firebaseEnabled && auth && provider) {
       try {
@@ -1560,7 +1570,7 @@ export default function App() {
               )}
               <span 
                 className="mobile-user-points"
-                onClick={() => document.getElementById('points-table-anchor')?.scrollIntoView({ behavior: 'smooth' })}
+                onClick={scrollToPointsTable}
               >
                 {currentName} {myPoints} p
               </span>
@@ -1659,8 +1669,7 @@ export default function App() {
         </section>
 
         <aside className="sidebar">
-          <div id="points-table-anchor" style={{ position: "absolute", top: "-60px" }}></div>
-          <section className="side-card">
+          <section className="side-card" ref={pointsTableRef} id="points-table-anchor">
             <div className="section-title"><h2>Pistetaulukko</h2><Trophy color="var(--accent-yellow)" /></div>
             {table.map((row, index) => (
               <div className="table-row" key={row.name}>

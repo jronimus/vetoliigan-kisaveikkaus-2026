@@ -1,0 +1,4 @@
+name = "vetoliiga-worldcup-proxy"
+main = "cloudflare-worker.js"
+compatibility_date = "2026-06-15"
+workers_dev = true

@@ -200,19 +200,19 @@ export async function fetchWorldCup(): Promise<WorldCupState> {
 
   try {
     const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
-      fetchStatic<{ games: ApiGame[] }>("games.json"),
-      fetchStatic<{ teams: ApiTeam[] }>("teams.json"),
-      fetchStatic<{ groups: ApiGroup[] }>("groups.json"),
-      fetchStatic<{ stadiums: ApiStadium[] }>("stadiums.json"),
+      fetchJson<{ games: ApiGame[] }>(`${API}/games`, { cache: "no-store" }),
+      fetchJson<{ teams: ApiTeam[] }>(`${API}/teams`, { cache: "force-cache" }),
+      fetchJson<{ groups: ApiGroup[] }>(`${API}/groups`, { cache: "no-store" }),
+      fetchJson<{ stadiums: ApiStadium[] }>(`${API}/stadiums`, { cache: "force-cache" }),
     ]);
     state = buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], stadiumsJson.stadiums ?? [], "direct");
   } catch {
     try {
       const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
-        fetchJson<{ games: ApiGame[] }>(`${API}/games`, { cache: "no-store" }),
-        fetchJson<{ teams: ApiTeam[] }>(`${API}/teams`, { cache: "force-cache" }),
-        fetchJson<{ groups: ApiGroup[] }>(`${API}/groups`, { cache: "no-store" }),
-        fetchJson<{ stadiums: ApiStadium[] }>(`${API}/stadiums`, { cache: "force-cache" }),
+        fetchStatic<{ games: ApiGame[] }>("games.json"),
+        fetchStatic<{ teams: ApiTeam[] }>("teams.json"),
+        fetchStatic<{ groups: ApiGroup[] }>("groups.json"),
+        fetchStatic<{ stadiums: ApiStadium[] }>("stadiums.json"),
       ]);
       state = buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], stadiumsJson.stadiums ?? [], "direct");
     } catch {
@@ -254,7 +254,11 @@ export function stripAccents(str: string): string {
 }
 
 export function normalizeScorerName(name: string): string {
-  const clean = name.trim().toLowerCase().replace(/\s+/g, " ");
+  const clean = name
+    .trim()
+    .replace(/\b([A-Za-zÀ-ÖØ-öø-ÿ])\.(?=[A-Za-zÀ-ÖØ-öø-ÿ])/g, "$1. ")
+    .toLowerCase()
+    .replace(/\s+/g, " ");
   if (!clean) return "";
 
   // Specific common overrides
@@ -276,8 +280,18 @@ export function normalizeScorerName(name: string): string {
   if (clean === "bellingham" || clean === "jude bellingham") {
     return "J. Bellingham";
   }
-  if (clean === "vinicius" || clean === "vinicius jr" || clean === "vinicius junior" || clean === "vini jr") {
+  if (
+    clean === "vinicius" ||
+    clean === "vinicius jr" ||
+    clean === "vinicius junior" ||
+    clean === "vini jr" ||
+    clean === "v. junior" ||
+    clean === "v. júnior"
+  ) {
     return "Vinícius Jr.";
+  }
+  if (clean === "a. diallo" || clean === "amad diallo") {
+    return "Amad";
   }
 
   // General case: "First Last" -> "F. Last"
@@ -311,6 +325,7 @@ export function parseScorers(value: string): ParsedScorer[] {
       // Strip the own goal indicator out of the name
       let cleanEntry = entry.replace(/\s*\([^)]*(og|o\.g\.|om|own\s*goal|oma\s*maali)[^)]*\)/gi, "").trim();
       cleanEntry = cleanEntry.replace(/(?:^|[^a-zA-Z])(og|o\.g\.|om|own\s*goal|oma\s*maali)(?:[^a-zA-Z]|$)/gi, "").trim();
+      cleanEntry = cleanEntry.replace(/\s*\((?:p|pen|penalty|rangaistuspotku)\)\s*/gi, " ").trim();
       
       // Strip minutes (e.g. "D. Bobadilla 7'" -> "D. Bobadilla")
       // Supporting standard minutes, injury time (e.g. 45'+5', 90'+8', 90+2')
@@ -460,4 +475,3 @@ export function getScoreBadgeText(game: ApiGame): string {
 
   return "LIVE";
 }
-

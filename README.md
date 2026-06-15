@@ -23,3 +23,22 @@ Nopea ja moderni neljän hengen MM-kisaveikkausappi, joka on suunniteltu erityis
 npm install
 npm run dev
 ```
+
+## Live-datan cache-proxy
+
+Sovellus voi hakea MM-datan Cloudflare Workerin kautta, jolloin käyttäjien selaimet eivät osu suoraan alkuperäiseen APIin. Aseta frontendin buildiin:
+
+```bash
+VITE_WORLDCUP_API_BASE=https://vetoliiga-worldcup-proxy.<cloudflare-subdomain>.workers.dev/get
+```
+
+Worker cachettaa `games`-datan lyhyesti, `groups`-datan vähän pidemmäksi ajaksi ja `teams`/`stadiums`-datan pitkäksi ajaksi.
+
+Julkaisu:
+
+```bash
+npx wrangler login
+npm run deploy:worker
+```
+
+Kun Worker on julkaistu, lisää sen `/get`-päätteinen osoite GitHub-repon secretiksi nimellä `VITE_WORLDCUP_API_BASE`. GitHub Pages -workflow käyttää sitä seuraavassa buildissä automaattisesti.
