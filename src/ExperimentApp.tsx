@@ -529,7 +529,7 @@ function InlinePredictionEditor({
       predictions: [...player.predictions.filter((item) => item.matchId !== game.id), nextPrediction],
     };
     const nextPlayers = players.map((item) => (item.name === player.name ? nextPlayer : item));
-    
+
     // Optimistic update
     setPlayers(nextPlayers);
     saveLocal(nextPlayers);
@@ -595,7 +595,7 @@ function getSeededRandom(seedStr: string) {
   for (let i = 0; i < seedStr.length; i++) {
     hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return function() {
+  return function () {
     const x = Math.sin(hash++) * 10000;
     return x - Math.floor(x);
   };
@@ -603,18 +603,18 @@ function getSeededRandom(seedStr: string) {
 
 function generateCardBackdropStyle(gameId: string) {
   const rand = getSeededRandom(gameId);
-  
+
   // Shuffled colors from BORDER_PALETTE
   const shuffledColors = [...BORDER_PALETTE].sort(() => rand() - 0.5);
   const c1 = shuffledColors[0];
   const c2 = shuffledColors[1];
   const c3 = shuffledColors[2];
   const c4 = shuffledColors[3];
-  
+
   // Center point: cx, cy (30% to 70%)
   const cx = Math.floor(rand() * 40) + 30;
   const cy = Math.floor(rand() * 40) + 30;
-  
+
   // Edge points: tx, ry, bx, ly (20% to 80%)
   const tx = Math.floor(rand() * 60) + 20;
   const ry = Math.floor(rand() * 60) + 20;
@@ -1352,13 +1352,13 @@ function MatchDetailsModal({
       : "--:--";
   const detailDateLine = scheduled
     ? new Intl.DateTimeFormat("fi-FI", {
-        weekday: "short",
-        day: "numeric",
-        month: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "UTC",
-      }).format(scheduled)
+      weekday: "short",
+      day: "numeric",
+      month: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "UTC",
+    }).format(scheduled)
     : "";
   const detailOdds = summary?.odds[0];
 
@@ -1430,7 +1430,11 @@ function MatchDetailsModal({
                   {homeTeam?.flag ? (
                     <img className="inline-flag home-flag" src={homeTeam.flag} alt="" />
                   ) : null}
-                  {(game.espn_home_red_cards ?? 0) > 0 ? <span className="red-card-indicator home-red-card" title="Punainen kortti" /> : null}
+                  {(game.espn_home_red_cards ?? 0) > 0 ? (
+                    <span className="red-card-indicator home-red-card" title={`${game.espn_home_red_cards} punaista korttia`}>
+                      {(game.espn_home_red_cards ?? 0) > 1 ? game.espn_home_red_cards : null}
+                    </span>
+                  ) : null}
 
                   <div className="inline-center-block">
                     <div className={clsx("match-status-badge-above", headerStatus.type)}>
@@ -1458,7 +1462,11 @@ function MatchDetailsModal({
                   {awayTeam?.flag ? (
                     <img className="inline-flag away-flag" src={awayTeam.flag} alt="" />
                   ) : null}
-                  {(game.espn_away_red_cards ?? 0) > 0 ? <span className="red-card-indicator away-red-card" title="Punainen kortti" /> : null}
+                  {(game.espn_away_red_cards ?? 0) > 0 ? (
+                    <span className="red-card-indicator away-red-card" title={`${game.espn_away_red_cards} punaista korttia`}>
+                      {(game.espn_away_red_cards ?? 0) > 1 ? game.espn_away_red_cards : null}
+                    </span>
+                  ) : null}
                 </div>
               </div>
               <div className="match-detail-team-names-mobile">
@@ -1490,51 +1498,51 @@ function MatchDetailsModal({
         >
           <div className={clsx("match-detail-grid", "match-detail-page", `match-detail-page-${detailPage}`)}>
             {detailPage === "events" ? (
-            <section className="match-detail-section match-detail-events-section match-detail-page-section">
-              {timelineEvents.length ? (
-                <div className="match-timeline">
-                  {timelineEvents.map((event) => (
-                    <div className={clsx("timeline-row", event.side)} key={event.id}>
-                      <div className="timeline-side timeline-home">
-                        {event.side === "home" ? <TimelineEventContent event={event} /> : null}
+              <section className="match-detail-section match-detail-events-section match-detail-page-section">
+                {timelineEvents.length ? (
+                  <div className="match-timeline">
+                    {timelineEvents.map((event) => (
+                      <div className={clsx("timeline-row", event.side)} key={event.id}>
+                        <div className="timeline-side timeline-home">
+                          {event.side === "home" ? <TimelineEventContent event={event} /> : null}
+                        </div>
+                        <div className="timeline-minute">{event.side === "center" ? "" : event.minute || "-"}</div>
+                        <div className="timeline-side timeline-away">
+                          {event.side === "away" ? <TimelineEventContent event={event} /> : null}
+                        </div>
+                        {event.side === "center" ? <TimelineEventContent event={event} /> : null}
                       </div>
-                      <div className="timeline-minute">{event.side === "center" ? "" : event.minute || "-"}</div>
-                      <div className="timeline-side timeline-away">
-                        {event.side === "away" ? <TimelineEventContent event={event} /> : null}
-                      </div>
-                      {event.side === "center" ? <TimelineEventContent event={event} /> : null}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="match-detail-empty">Tapahtumia ei ole vielä saatavilla.</div>
-              )}
-            </section>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="match-detail-empty">Tapahtumia ei ole vielä saatavilla.</div>
+                )}
+              </section>
             ) : null}
 
             {detailPage === "lineups" ? (
-            <section className="match-detail-section match-detail-lineup-section match-detail-page-section">
-              {summary?.rosters.home || summary?.rosters.away ? (
-                <LineupPitch
-                  homeSide={summary.rosters.home}
-                  awaySide={summary.rosters.away}
-                  homeColor={homeColor}
-                  awayColor={awayColor}
-                  homeFlag={homeTeam?.flag}
-                  awayFlag={awayTeam?.flag}
-                />
-              ) : (
-                <div className="match-detail-empty">Kokoonpanoja ei ole vielä saatavilla.</div>
-              )}
-            </section>
+              <section className="match-detail-section match-detail-lineup-section match-detail-page-section">
+                {summary?.rosters.home || summary?.rosters.away ? (
+                  <LineupPitch
+                    homeSide={summary.rosters.home}
+                    awaySide={summary.rosters.away}
+                    homeColor={homeColor}
+                    awayColor={awayColor}
+                    homeFlag={homeTeam?.flag}
+                    awayFlag={awayTeam?.flag}
+                  />
+                ) : (
+                  <div className="match-detail-empty">Kokoonpanoja ei ole vielä saatavilla.</div>
+                )}
+              </section>
             ) : null}
 
             {detailPage === "stats" ? (
-            <aside className="match-detail-side-stack match-detail-page-section">
-              <section className="match-detail-section">
-                <DetailStatRows home={summary?.stats.home ?? []} away={summary?.stats.away ?? []} homeColor={homeColor} awayColor={awayColor} />
-              </section>
-            </aside>
+              <aside className="match-detail-side-stack match-detail-page-section">
+                <section className="match-detail-section">
+                  <DetailStatRows home={summary?.stats.home ?? []} away={summary?.stats.away ?? []} homeColor={homeColor} awayColor={awayColor} />
+                </section>
+              </aside>
             ) : null}
           </div>
         </div>
@@ -1563,7 +1571,7 @@ function MatchCardColumn({
   const away = teamName(game, "away");
   const homeTeam = teamByName(teams, home);
   const awayTeam = teamByName(teams, away);
-  
+
   const displayPlayers = [...players].sort((a, b) => a.name.localeCompare(b.name));
 
   const scheduled = finlandClockDate(game);
@@ -1618,67 +1626,73 @@ function MatchCardColumn({
       <div className="match-card-content-panel">
         <div className="match-stage">
           <button className="score-row-details-button" type="button" onClick={() => onOpenDetails(game)} aria-label="Avaa ottelun lisätiedot">
-          <div className="score-row-card-wrap">
-            <div className="score-row-card-backdrop-wrap">
-              <svg
-                className="score-row-card-backdrop"
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-                style={{
-                  position: "absolute",
-                  inset: "0px",
-                  width: "100%",
-                  height: "100%",
-                  zIndex: 1,
-                }}
-              >
-                <g>
-                  {/* Sector 1: Top-Left (Light Purple) */}
-                  <path d={`M ${bcol.cx} ${bcol.cy} L ${bcol.tx} 0 L 0 0 L 0 ${bcol.ly} Z`} fill="#A180EA" />
-                  {/* Sector 2: Top-Right (Dark Purple) */}
-                  <path d={`M ${bcol.cx} ${bcol.cy} L 100 ${bcol.ry} L 100 0 L ${bcol.tx} 0 Z`} fill="#6800E4" />
-                  {/* Sector 3: Bottom-Right (Red) */}
-                  <path d={`M ${bcol.cx} ${bcol.cy} L ${bcol.bx} 100 L 100 100 L 100 ${bcol.ry} Z`} fill="#8B0404" />
-                  {/* Sector 4: Bottom-Left (Yellow) */}
-                  <path d={`M ${bcol.cx} ${bcol.cy} L 0 ${bcol.ly} L 0 100 L ${bcol.bx} 100 Z`} fill="#B9D637" />
-                </g>
-              </svg>
-            </div>
-            <div className="score-row-card-body">
-              {homeTeam?.flag ? (
-                <img className="inline-flag home-flag" src={homeTeam.flag} alt="" />
-              ) : null}
-              {(game.espn_home_red_cards ?? 0) > 0 ? <span className="red-card-indicator home-red-card" title="Punainen kortti" /> : null}
-
-              <div className="inline-center-block">
-                <div className={clsx("match-status-badge-above", kickoffStatus.type)}>
-                  {kickoffStatus.text}
-                </div>
-                {kickoffStatus.type === "live" ? (
-                  <div className="score-capsule live">
-                    <span className="score-num">{parseScore(game.home_score)}</span>
-                    <span className="score-divider-line" />
-                    <span className="score-num">{parseScore(game.away_score)}</span>
-                  </div>
-                ) : kickoffStatus.type === "finished" ? (
-                  <div className="score-capsule finished">
-                    <span className="score-num">{parseScore(game.home_score)}</span>
-                    <span className="score-divider-line" />
-                    <span className="score-num">{parseScore(game.away_score)}</span>
-                  </div>
-                ) : (
-                  <div className="score-capsule upcoming">
-                    <span className="score-time">{centerValue}</span>
-                  </div>
-                )}
+            <div className="score-row-card-wrap">
+              <div className="score-row-card-backdrop-wrap">
+                <svg
+                  className="score-row-card-backdrop"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  style={{
+                    position: "absolute",
+                    inset: "0px",
+                    width: "100%",
+                    height: "100%",
+                    zIndex: 1,
+                  }}
+                >
+                  <g>
+                    {/* Sector 1: Top-Left (Light Purple) */}
+                    <path d={`M ${bcol.cx} ${bcol.cy} L ${bcol.tx} 0 L 0 0 L 0 ${bcol.ly} Z`} fill="#A180EA" />
+                    {/* Sector 2: Top-Right (Dark Purple) */}
+                    <path d={`M ${bcol.cx} ${bcol.cy} L 100 ${bcol.ry} L 100 0 L ${bcol.tx} 0 Z`} fill="#6800E4" />
+                    {/* Sector 3: Bottom-Right (Red) */}
+                    <path d={`M ${bcol.cx} ${bcol.cy} L ${bcol.bx} 100 L 100 100 L 100 ${bcol.ry} Z`} fill="#8B0404" />
+                    {/* Sector 4: Bottom-Left (Yellow) */}
+                    <path d={`M ${bcol.cx} ${bcol.cy} L 0 ${bcol.ly} L 0 100 L ${bcol.bx} 100 Z`} fill="#B9D637" />
+                  </g>
+                </svg>
               </div>
+              <div className="score-row-card-body">
+                {homeTeam?.flag ? (
+                  <img className="inline-flag home-flag" src={homeTeam.flag} alt="" />
+                ) : null}
+                {(game.espn_home_red_cards ?? 0) > 0 ? (
+                  <span className="red-card-indicator home-red-card" title={`${game.espn_home_red_cards} punaista korttia`}>
+                    {(game.espn_home_red_cards ?? 0) > 1 ? game.espn_home_red_cards : null}
+                  </span>
+                ) : null}
+                <div className="inline-center-block">
+                  <div className={clsx("match-status-badge-above", kickoffStatus.type)}>
+                    {kickoffStatus.text}
+                  </div>
+                  {kickoffStatus.type === "live" ? (
+                    <div className="score-capsule live">
+                      <span className="score-num">{parseScore(game.home_score)}</span>
+                      <span className="score-divider-line" />
+                      <span className="score-num">{parseScore(game.away_score)}</span>
+                    </div>
+                  ) : kickoffStatus.type === "finished" ? (
+                    <div className="score-capsule finished">
+                      <span className="score-num">{parseScore(game.home_score)}</span>
+                      <span className="score-divider-line" />
+                      <span className="score-num">{parseScore(game.away_score)}</span>
+                    </div>
+                  ) : (
+                    <div className="score-capsule upcoming">
+                      <span className="score-time">{centerValue}</span>
+                    </div>
+                  )}
+                </div>
 
-              {awayTeam?.flag ? (
-                <img className="inline-flag away-flag" src={awayTeam.flag} alt="" />
-              ) : null}
-              {(game.espn_away_red_cards ?? 0) > 0 ? <span className="red-card-indicator away-red-card" title="Punainen kortti" /> : null}
+                {awayTeam?.flag ? (
+                  <img className="inline-flag away-flag" src={awayTeam.flag} alt="" />
+                ) : null}
+                {(game.espn_away_red_cards ?? 0) > 0 ? (
+                  <span className="red-card-indicator away-red-card" title={`${game.espn_away_red_cards} punaista korttia`}>
+                    {(game.espn_away_red_cards ?? 0) > 1 ? game.espn_away_red_cards : null}
+                  </span>
+                ) : null}              </div>
             </div>
-          </div>
           </button>
 
           <div className="team-names-row">
@@ -1698,60 +1712,60 @@ function MatchCardColumn({
 
         <div className="prediction-list">
           {displayPlayers.map((player) => {
-          const prediction = player.predictions.find((item) => item.matchId === game.id);
-          const isSelf = player.name === currentPlayerName;
-          const isOpen = !predictionLocked(game);
+            const prediction = player.predictions.find((item) => item.matchId === game.id);
+            const isSelf = player.name === currentPlayerName;
+            const isOpen = !predictionLocked(game);
 
-          if (isSelf && isOpen && isEditing) {
-            return (
-              <InlinePredictionEditor
-                key={player.name}
-                player={player}
-                game={game}
-                players={players}
-                setPlayers={setPlayers}
-                onSaveComplete={() => setIsEditing(false)}
-              />
-            );
-          }
+            if (isSelf && isOpen && isEditing) {
+              return (
+                <InlinePredictionEditor
+                  key={player.name}
+                  player={player}
+                  game={game}
+                  players={players}
+                  setPlayers={setPlayers}
+                  onSaveComplete={() => setIsEditing(false)}
+                />
+              );
+            }
 
-          const hasPredicted = !!prediction;
-          const points = prediction ? matchPoints(prediction, game) : 0;
-          const pointsClass = !isOpen && prediction ? `points-${points}` : "";
+            const hasPredicted = !!prediction;
+            const points = prediction ? matchPoints(prediction, game) : 0;
+            const pointsClass = !isOpen && prediction ? `points-${points}` : "";
 
             return (
               <div className={clsx("prediction-row", pointsClass)} key={player.name}>
-              <strong className="pred-player-name">{player.name}</strong>
-              <div className="pred-score-wrap">
-                {!isOpen ? (
-                  prediction ? (
-                    <span className="prediction-score">{prediction.home}-{prediction.away}</span>
+                <strong className="pred-player-name">{player.name}</strong>
+                <div className="pred-score-wrap">
+                  {!isOpen ? (
+                    prediction ? (
+                      <span className="prediction-score">{prediction.home}-{prediction.away}</span>
+                    ) : (
+                      <span className="prediction-score empty-score">–</span>
+                    )
                   ) : (
-                    <span className="prediction-score empty-score">–</span>
-                  )
-                ) : (
-                  hasPredicted ? (
-                    <span className="prediction-score predicted-ok" title="Veikkaus tallennettu">✔</span>
+                    hasPredicted ? (
+                      <span className="prediction-score predicted-ok" title="Veikkaus tallennettu">✔</span>
+                    ) : (
+                      <span className="prediction-score empty-score">–</span>
+                    )
+                  )}
+                </div>
+                <div className="pred-points-wrap">
+                  {!isOpen ? (
+                    prediction ? (
+                      <span className="points">{matchPoints(prediction, game)} p</span>
+                    ) : (
+                      <span className="points">0 p</span>
+                    )
                   ) : (
-                    <span className="prediction-score empty-score">–</span>
-                  )
-                )}
-              </div>
-              <div className="pred-points-wrap">
-                {!isOpen ? (
-                  prediction ? (
-                    <span className="points">{matchPoints(prediction, game)} p</span>
-                  ) : (
-                    <span className="points">0 p</span>
-                  )
-                ) : (
-                  isSelf && hasPredicted ? (
-                    <button className="compact-edit-btn" onClick={() => setIsEditing(true)}>Muuta</button>
-                  ) : (
-                    <span className="points-placeholder" />
-                  )
-                )}
-              </div>
+                    isSelf && hasPredicted ? (
+                      <button className="compact-edit-btn" onClick={() => setIsEditing(true)}>Muuta</button>
+                    ) : (
+                      <span className="points-placeholder" />
+                    )
+                  )}
+                </div>
               </div>
             );
           })}
@@ -1873,7 +1887,7 @@ function MatchSections({
     olderGroupedByDate.set(key, [...(olderGroupedByDate.get(key) ?? []), game]);
   });
   const allOlderDays = [...olderGroupedByDate.entries()];
-  
+
   const visibleOlderGames = useMemo(() => {
     return allOlderDays.flatMap(([_, dayGames]) => dayGames);
   }, [allOlderDays]);
@@ -1973,7 +1987,7 @@ function MatchSections({
             <div className="match-row-flow" key={rowIdx}>
               {groups.map((chunk: ApiGame[], chunkIdx: number) => {
                 const dayLabel = dateLabel(chunk[0]);
-                
+
                 return (
                   <div
                     className="match-card-wrapper"
@@ -2050,7 +2064,7 @@ function BonusBetsCard({
 }) {
   const locked = isBonusLocked();
   const player = players.find((p) => p.name === currentName);
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<BonusPicks>(() => {
     return player ? { ...player.bonus } : { champion: "", topScorer: "", surprise: "", flop: "" };
@@ -2067,7 +2081,7 @@ function BonusBetsCard({
     if (locked || !player) return;
     setSaveError(null);
     const next = players.map((item) => (item.name === player.name ? { ...item, bonus: draft } : item));
-    
+
     // Optimistic update
     setPlayers(next);
     saveLocal(next);
@@ -2107,7 +2121,7 @@ function BonusBetsCard({
                   </span>
                 )}
                 {isMe && !locked && (
-                  <button 
+                  <button
                     className="edit-bonus-btn"
                     onClick={() => {
                       if (!isEditing) {
@@ -2163,7 +2177,7 @@ function BonusBetsCard({
                       placeholder="Esim. Englanti"
                     />
                   </div>
-                   <button className="primary-btn save-bonus-btn" onClick={handleSave}>
+                  <button className="primary-btn save-bonus-btn" onClick={handleSave}>
                     Tallenna bonukset
                   </button>
                   {saveError && (
@@ -2574,7 +2588,7 @@ export default function App() {
     }
     const fire = db;
     setSyncStatus({ status: "loading" });
-    
+
     let hasFetchError = false;
     let fetchErrorMessage = "";
 
@@ -2599,17 +2613,17 @@ export default function App() {
             }
             return localMatch;
           }
-          
+
           const serverData = snap.data() as PlayerState;
           const localMatch = localPlayers().find((p) => p.name === seed.name) || seed;
-          
+
           // If server is completely empty (e.g. initialized from mobile) but local has data, prefer local.
           // This is a temporary migration safeguard.
           const serverHasBonus = Boolean(serverData.bonus.champion || serverData.bonus.flop || serverData.bonus.surprise || serverData.bonus.topScorer);
           const localHasBonus = Boolean(localMatch.bonus.champion || localMatch.bonus.flop || localMatch.bonus.surprise || localMatch.bonus.topScorer);
           const serverHasBets = serverData.predictions.length > 0;
           const localHasBets = localMatch.predictions.length > 0;
-          
+
           if (!serverHasBonus && !serverHasBets && (localHasBonus || localHasBets) && seed.name === currentName) {
             await setDoc(ref, localMatch);
             return localMatch;
@@ -2792,257 +2806,257 @@ export default function App() {
         </defs>
       </svg>
       <main className="app-shell" style={appShellStyle}>
-      <div className="arena-backdrop" />
+        <div className="arena-backdrop" />
 
-      {/* Mobile Top Bar */}
-      <div className="mobile-top-bar">
-        <nav className="mobile-primary-nav">
-          <button 
-            className={clsx("mobile-nav-link", { active: mainView === "matches" })} 
-            onClick={() => {
-              setMainView("matches");
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-          >
-            Ottelut
-          </button>
-          <button 
-            className={clsx("mobile-nav-link", { active: mainView === "tables" })} 
-            onClick={() => {
-              setMainView("tables");
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-          >
-            Taulukot
-          </button>
-          <button 
-            className={clsx("mobile-nav-link", { active: mainView === "stats" })} 
-            onClick={() => {
-              setMainView("stats");
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-          >
-            Tilastot
-          </button>
-        </nav>
+        {/* Mobile Top Bar */}
+        <div className="mobile-top-bar">
+          <nav className="mobile-primary-nav">
+            <button
+              className={clsx("mobile-nav-link", { active: mainView === "matches" })}
+              onClick={() => {
+                setMainView("matches");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              Ottelut
+            </button>
+            <button
+              className={clsx("mobile-nav-link", { active: mainView === "tables" })}
+              onClick={() => {
+                setMainView("tables");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              Taulukot
+            </button>
+            <button
+              className={clsx("mobile-nav-link", { active: mainView === "stats" })}
+              onClick={() => {
+                setMainView("stats");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              Tilastot
+            </button>
+          </nav>
 
-        <div className="mobile-top-right">
-          {currentName ? (
-            <div className="mobile-top-user-wrap">
-              {showPointsHint && (
-                <div className="points-tooltip">
-                  Tästä pääset pistetaulukkoon
-                </div>
-              )}
-              <span 
-                className="mobile-user-points"
-                onClick={scrollToPointsTable}
-              >
-                {currentName} {myPoints} p
-              </span>
-              {user?.photoURL ? (
-                <img 
-                  src={user.photoURL} 
-                  alt="" 
-                  className="avatar avatar-img" 
-                  referrerPolicy="no-referrer" 
-                  onClick={signOutUser} 
-                  title="Kirjaudu ulos" 
-                />
-              ) : (
-                <span 
-                  className="avatar" 
-                  onClick={signOutUser} 
-                  title="Kirjaudu ulos"
-                >
-                  {(currentName ?? "?").slice(0, 1)}
-                </span>
-              )}
-            </div>
-          ) : (
-            <button className="primary-btn compact" onClick={signIn}><LogIn size={14} /> Kirjaudu</button>
-          )}
-        </div>
-      </div>
-
-      <header className="hero">
-        <div className="hero-header-row">
-          <img src={appLogo} alt="Vetoliiga Logo" className="hero-logo" />
-          <div className="hero-copy-wrap">
-            <div className="eyebrow">Vetoliigan kisaveikkaus 2026</div>
-            <h1>Kisataulu</h1>
-          </div>
-        </div>
-      </header>
-
-      <div className="nav-toolbar-row">
-        <nav className="primary-nav">
-          <button 
-            className={clsx("nav-link", { active: mainView === "matches" })} 
-            onClick={() => {
-              setMainView("matches");
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-          >
-            Ottelut
-          </button>
-          <button 
-            className={clsx("nav-link", { active: mainView === "tables" })} 
-            onClick={() => {
-              setMainView("tables");
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-          >
-            Taulukot
-          </button>
-          <button 
-            className={clsx("nav-link", { active: mainView === "stats" })} 
-            onClick={() => {
-              setMainView("stats");
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-          >
-            Tilastot
-          </button>
-        </nav>
-        <section className="desktop-nav-auth">
-          <div className="auth-row">
-            <div className="user-pill">
-              {user?.photoURL ? (
-                <img src={user.photoURL} alt="" className="avatar avatar-img" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="avatar">{(currentName ?? "?").slice(0, 1)}</span>
-              )}
-              <div>
-                <strong>{currentName ?? "Vierailija"}</strong>
-              </div>
-            </div>
+          <div className="mobile-top-right">
             {currentName ? (
-              <button className="icon-btn" title="Kirjaudu ulos" onClick={signOutUser}><LogOut size={18} /></button>
-            ) : (
-              <button className="primary-btn" onClick={signIn}><LogIn size={16} /> Kirjaudu</button>
-            )}
-          </div>
-        </section>
-      </div>
-
-      <div className="layout">
-        <section className="main-stage">
-          {mainView === "matches" ? (
-            <MatchSections
-              games={games}
-              teams={teams}
-              stadiums={stadiums}
-              players={players}
-              currentPlayerName={currentName}
-              setPlayers={setPlayers}
-            />
-          ) : mainView === "tables" ? (
-            <GroupTables games={games} teams={teams} />
-          ) : (
-            <TournamentStats games={games} teams={teams} />
-          )}
-
-        </section>
-
-        <aside className="sidebar">
-          <section className="side-card" ref={pointsTableRef} id="points-table-anchor">
-            <div className="section-title"><h2>Pistetaulukko</h2><Trophy color="var(--accent-yellow)" /></div>
-            {table.map((row, index) => (
-              <div className="table-row" key={row.name}>
-                <span className="rank">{index + 1}</span>
-                <span className="table-name">{row.name}</span>
-                <span className="points">{row.points} p</span>
-              </div>
-            ))}
-          </section>
-
-          <section className="side-card">
-            <div className="section-title"><h2>Maalipörssi</h2></div>
-            {topScorers.length ? (
-              <div className="scorer-list">
-                {topScorers.map((scorer, index) => {
-                  const pickers = getPickersForScorer(scorer.name);
-                  const team = teamById(teams, scorer.teamId);
-                  const flagUrl = team?.flag;
-                  return (
-                    <div className="scorer-row" key={scorer.name}>
-                      <span className="rank">{scorerRanks.get(scorer.name) ?? index + 1}</span>
-                      <span className="scorer-name">
-                        {flagUrl ? <img src={flagUrl} alt="" className="scorer-flag" /> : null}
-                        <span>
-                          {scorer.name}
-                          {pickers.map((pName) => (
-                            <span className="scorer-picker-pill" key={pName}>{pName}</span>
-                          ))}
-                        </span>
-                      </span>
-                      <span className="points">{scorer.goals}</span>
-                    </div>
-                  );
-                })}
-
-                {extraScorers.length > 0 && (
-                  <>
-                    <div className="scorer-divider">Valitut haastajat</div>
-                    {extraScorers.map((scorer) => {
-                      const pickers = getPickersForScorer(scorer.name);
-                      const team = scorer.teamId ? teamById(teams, scorer.teamId) : null;
-                      const flagUrl = team?.flag;
-                      return (
-                        <div className="scorer-row extra-scorer" key={scorer.name}>
-                          <span className="rank">{scorer.rank}</span>
-                          <span className="scorer-name">
-                            {flagUrl ? <img src={flagUrl} alt="" className="scorer-flag" /> : null}
-                            <span>
-                              {scorer.name}
-                              {pickers.map((pName) => (
-                                <span className="scorer-picker-pill" key={pName}>{pName}</span>
-                              ))}
-                            </span>
-                          </span>
-                          <span className="points">{scorer.goals}</span>
-                        </div>
-                      );
-                    })}
-                  </>
+              <div className="mobile-top-user-wrap">
+                {showPointsHint && (
+                  <div className="points-tooltip">
+                    Tästä pääset pistetaulukkoon
+                  </div>
+                )}
+                <span
+                  className="mobile-user-points"
+                  onClick={scrollToPointsTable}
+                >
+                  {currentName} {myPoints} p
+                </span>
+                {user?.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt=""
+                    className="avatar avatar-img"
+                    referrerPolicy="no-referrer"
+                    onClick={signOutUser}
+                    title="Kirjaudu ulos"
+                  />
+                ) : (
+                  <span
+                    className="avatar"
+                    onClick={signOutUser}
+                    title="Kirjaudu ulos"
+                  >
+                    {(currentName ?? "?").slice(0, 1)}
+                  </span>
                 )}
               </div>
             ) : (
-              <p className="subtle-note">Maalipörssitaulu täyttyy heti kun dataa tulee.</p>
+              <button className="primary-btn compact" onClick={signIn}><LogIn size={14} /> Kirjaudu</button>
             )}
-          </section>
+          </div>
+        </div>
 
-
-
-          <BonusBetsCard currentName={currentName} players={players} setPlayers={setPlayers} />
-        </aside>
-
-        <section className="rules-section">
-          <div className="rules-panel">
-            <div className="section-title"><h2>Pisteytys</h2></div>
-            <div className="rule-list">
-              <div className="rule-item"><span className="badge">5</span><div><strong>Täysin oikea tulos</strong><span className="muted">Esim. 2-1 ja peli päättyy 2-1.</span></div></div>
-              <div className="rule-item"><span className="badge">3</span><div><strong>Oikea maaliero ja merkki</strong><span className="muted">Esim. 3-1 ja peli päättyy 2-0.</span></div></div>
-              <div className="rule-item"><span className="badge">2</span><div><strong>Oikea merkki, väärä maaliero</strong><span className="muted">Esim. 1-0 ja peli päättyy 3-1.</span></div></div>
-              <div className="rule-item"><span className="badge">2</span><div><strong>Tasapeli oikein, väärät maalit</strong><span className="muted">Esim. 1-1 ja peli päättyy 2-2.</span></div></div>
-              <div className="rule-item"><span className="badge">1</span><div><strong>Toisen joukkueen maalimäärä oikein, tulos väärin</strong><span className="muted">Esim. veikkaus 2-0 ja peli päättyy 2-3.</span></div></div>
-            </div>
-            
-            <div className="section-title" style={{ marginTop: "24px" }}><h2>Bonusveikkaukset</h2></div>
-            <div className="rule-list">
-              <div className="rule-item"><span className="badge hot">20</span><div><strong>Oikea maailmanmestari</strong></div></div>
-              <div className="rule-item"><span className="badge">10</span><div><strong>Turnauksen maalikuningas</strong></div></div>
-              <div className="rule-item"><span className="badge">10</span><div><strong>Kisojen yllättäjä</strong></div></div>
-              <div className="rule-item"><span className="badge">10</span><div><strong>Kisojen floppi</strong></div></div>
+        <header className="hero">
+          <div className="hero-header-row">
+            <img src={appLogo} alt="Vetoliiga Logo" className="hero-logo" />
+            <div className="hero-copy-wrap">
+              <div className="eyebrow">Vetoliigan kisaveikkaus 2026</div>
+              <h1>Kisataulu</h1>
             </div>
           </div>
-        </section>
-      </div>
-    </main>
+        </header>
 
-    <footer className="app-footer">
-      <div className="footer-content">
+        <div className="nav-toolbar-row">
+          <nav className="primary-nav">
+            <button
+              className={clsx("nav-link", { active: mainView === "matches" })}
+              onClick={() => {
+                setMainView("matches");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              Ottelut
+            </button>
+            <button
+              className={clsx("nav-link", { active: mainView === "tables" })}
+              onClick={() => {
+                setMainView("tables");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              Taulukot
+            </button>
+            <button
+              className={clsx("nav-link", { active: mainView === "stats" })}
+              onClick={() => {
+                setMainView("stats");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              Tilastot
+            </button>
+          </nav>
+          <section className="desktop-nav-auth">
+            <div className="auth-row">
+              <div className="user-pill">
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt="" className="avatar avatar-img" referrerPolicy="no-referrer" />
+                ) : (
+                  <span className="avatar">{(currentName ?? "?").slice(0, 1)}</span>
+                )}
+                <div>
+                  <strong>{currentName ?? "Vierailija"}</strong>
+                </div>
+              </div>
+              {currentName ? (
+                <button className="icon-btn" title="Kirjaudu ulos" onClick={signOutUser}><LogOut size={18} /></button>
+              ) : (
+                <button className="primary-btn" onClick={signIn}><LogIn size={16} /> Kirjaudu</button>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <div className="layout">
+          <section className="main-stage">
+            {mainView === "matches" ? (
+              <MatchSections
+                games={games}
+                teams={teams}
+                stadiums={stadiums}
+                players={players}
+                currentPlayerName={currentName}
+                setPlayers={setPlayers}
+              />
+            ) : mainView === "tables" ? (
+              <GroupTables games={games} teams={teams} />
+            ) : (
+              <TournamentStats games={games} teams={teams} />
+            )}
+
+          </section>
+
+          <aside className="sidebar">
+            <section className="side-card" ref={pointsTableRef} id="points-table-anchor">
+              <div className="section-title"><h2>Pistetaulukko</h2><Trophy color="var(--accent-yellow)" /></div>
+              {table.map((row, index) => (
+                <div className="table-row" key={row.name}>
+                  <span className="rank">{index + 1}</span>
+                  <span className="table-name">{row.name}</span>
+                  <span className="points">{row.points} p</span>
+                </div>
+              ))}
+            </section>
+
+            <section className="side-card">
+              <div className="section-title"><h2>Maalipörssi</h2></div>
+              {topScorers.length ? (
+                <div className="scorer-list">
+                  {topScorers.map((scorer, index) => {
+                    const pickers = getPickersForScorer(scorer.name);
+                    const team = teamById(teams, scorer.teamId);
+                    const flagUrl = team?.flag;
+                    return (
+                      <div className="scorer-row" key={scorer.name}>
+                        <span className="rank">{scorerRanks.get(scorer.name) ?? index + 1}</span>
+                        <span className="scorer-name">
+                          {flagUrl ? <img src={flagUrl} alt="" className="scorer-flag" /> : null}
+                          <span>
+                            {scorer.name}
+                            {pickers.map((pName) => (
+                              <span className="scorer-picker-pill" key={pName}>{pName}</span>
+                            ))}
+                          </span>
+                        </span>
+                        <span className="points">{scorer.goals}</span>
+                      </div>
+                    );
+                  })}
+
+                  {extraScorers.length > 0 && (
+                    <>
+                      <div className="scorer-divider">Valitut haastajat</div>
+                      {extraScorers.map((scorer) => {
+                        const pickers = getPickersForScorer(scorer.name);
+                        const team = scorer.teamId ? teamById(teams, scorer.teamId) : null;
+                        const flagUrl = team?.flag;
+                        return (
+                          <div className="scorer-row extra-scorer" key={scorer.name}>
+                            <span className="rank">{scorer.rank}</span>
+                            <span className="scorer-name">
+                              {flagUrl ? <img src={flagUrl} alt="" className="scorer-flag" /> : null}
+                              <span>
+                                {scorer.name}
+                                {pickers.map((pName) => (
+                                  <span className="scorer-picker-pill" key={pName}>{pName}</span>
+                                ))}
+                              </span>
+                            </span>
+                            <span className="points">{scorer.goals}</span>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
+              ) : (
+                <p className="subtle-note">Maalipörssitaulu täyttyy heti kun dataa tulee.</p>
+              )}
+            </section>
+
+
+
+            <BonusBetsCard currentName={currentName} players={players} setPlayers={setPlayers} />
+          </aside>
+
+          <section className="rules-section">
+            <div className="rules-panel">
+              <div className="section-title"><h2>Pisteytys</h2></div>
+              <div className="rule-list">
+                <div className="rule-item"><span className="badge">5</span><div><strong>Täysin oikea tulos</strong><span className="muted">Esim. 2-1 ja peli päättyy 2-1.</span></div></div>
+                <div className="rule-item"><span className="badge">3</span><div><strong>Oikea maaliero ja merkki</strong><span className="muted">Esim. 3-1 ja peli päättyy 2-0.</span></div></div>
+                <div className="rule-item"><span className="badge">2</span><div><strong>Oikea merkki, väärä maaliero</strong><span className="muted">Esim. 1-0 ja peli päättyy 3-1.</span></div></div>
+                <div className="rule-item"><span className="badge">2</span><div><strong>Tasapeli oikein, väärät maalit</strong><span className="muted">Esim. 1-1 ja peli päättyy 2-2.</span></div></div>
+                <div className="rule-item"><span className="badge">1</span><div><strong>Toisen joukkueen maalimäärä oikein, tulos väärin</strong><span className="muted">Esim. veikkaus 2-0 ja peli päättyy 2-3.</span></div></div>
+              </div>
+
+              <div className="section-title" style={{ marginTop: "24px" }}><h2>Bonusveikkaukset</h2></div>
+              <div className="rule-list">
+                <div className="rule-item"><span className="badge hot">20</span><div><strong>Oikea maailmanmestari</strong></div></div>
+                <div className="rule-item"><span className="badge">10</span><div><strong>Turnauksen maalikuningas</strong></div></div>
+                <div className="rule-item"><span className="badge">10</span><div><strong>Kisojen yllättäjä</strong></div></div>
+                <div className="rule-item"><span className="badge">10</span><div><strong>Kisojen floppi</strong></div></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <footer className="app-footer">
+        <div className="footer-content">
           <div className="footer-credits">
             <span>&copy; {new Date().getFullYear()}</span>
             <a href="https://github.com/jronimus" target="_blank" rel="noopener noreferrer" className="footer-author-link">
