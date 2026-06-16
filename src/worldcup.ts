@@ -19,6 +19,9 @@ export type ApiGame = {
   away_team_id: string;
   stadium_id: string;
   fallback_source?: string;
+  espn_event_id?: string;
+  espn_home_red_cards?: number;
+  espn_away_red_cards?: number;
 };
 
 export type ApiTeam = {
@@ -66,7 +69,7 @@ export type WorldCupState = {
 
 const API = import.meta.env.VITE_WORLDCUP_API_BASE || "https://worldcup26.ir/get";
 const CACHE_KEY = "vetoliiga.worldcup-cache";
-const STATIC_DATA = "/live-data";
+const STATIC_DATA = `${import.meta.env.BASE_URL}live-data`;
 
 export const FALLBACK_TEAMS: ApiTeam[] = [
   { id: "1", name_en: "Mexico", flag: "https://flagcdn.com/w80/mx.png", fifa_code: "MEX", groups: "A" },
@@ -148,6 +151,14 @@ async function fetchStatic<T>(path: string): Promise<T> {
   return fetchJson<T>(`${STATIC_DATA}/${path}`, { cache: "no-store" });
 }
 
+async function fetchOptionalStatic<T>(path: string): Promise<T | undefined> {
+  try {
+    return await fetchStatic<T>(path);
+  } catch {
+    return undefined;
+  }
+}
+
 async function fetchViaJina<T>(url: string): Promise<T> {
   const response = await fetch(`https://r.jina.ai/http://${url.replace(/^https?:\/\//, "")}`, { cache: "no-store" });
   if (!response.ok) throw new Error(`Jina HTTP ${response.status}`);
@@ -168,6 +179,21 @@ export function applyGameOverrides(games: ApiGame[]): ApiGame[] {
       return { ...game, ...override };
     }
     return game;
+  });
+}
+
+function mergeStaticEspnFields(primaryGames: ApiGame[], staticGames?: ApiGame[]) {
+  if (!staticGames?.length) return primaryGames;
+  const staticById = new Map(staticGames.map((game) => [game.id, game]));
+  return primaryGames.map((game) => {
+    const enriched = staticById.get(game.id);
+    if (!enriched) return game;
+    return {
+      ...game,
+      espn_event_id: game.espn_event_id ?? enriched.espn_event_id,
+      espn_home_red_cards: game.espn_home_red_cards ?? enriched.espn_home_red_cards,
+      espn_away_red_cards: game.espn_away_red_cards ?? enriched.espn_away_red_cards,
+    };
   });
 }
 
@@ -197,6 +223,7 @@ export function saveCachedWorldCup(state: WorldCupState) {
 
 export async function fetchWorldCup(): Promise<WorldCupState> {
   let state: WorldCupState;
+  const staticGamesJson = await fetchOptionalStatic<{ games: ApiGame[] }>("games.json");
 
   try {
     const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
@@ -205,7 +232,13 @@ export async function fetchWorldCup(): Promise<WorldCupState> {
       fetchJson<{ groups: ApiGroup[] }>(`${API}/groups`, { cache: "no-store" }),
       fetchJson<{ stadiums: ApiStadium[] }>(`${API}/stadiums`, { cache: "force-cache" }),
     ]);
-    state = buildState(gamesJson.games ?? [], teamsJson.teams ?? [], groupsJson.groups ?? [], stadiumsJson.stadiums ?? [], "direct");
+    state = buildState(
+      mergeStaticEspnFields(gamesJson.games ?? [], staticGamesJson?.games),
+      teamsJson.teams ?? [],
+      groupsJson.groups ?? [],
+      stadiumsJson.stadiums ?? [],
+      "direct",
+    );
   } catch {
     try {
       const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
@@ -444,8 +477,8 @@ export function isBonusLocked() {
 }
 
 export function normalizeTeamName(name: string): string {
-  let n = name.toLowerCase().trim();
-  n = n.replace(/ä/g, "a").replace(/ö/g, "o").replace(/å/g, "a").replace(/é/g, "e").replace(/ç/g, "c");
+  let n = stripAccents(name).toLowerCase().trim();
+  n = n.replace(/ä/g, "a").replace(/ö/g, "o").replace(/å/g, "a");
   n = n.replace(/[^a-z0-9]/g, " ");
   n = n.replace(/\s+/g, " ").trim();
   return n;
