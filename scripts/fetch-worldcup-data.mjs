@@ -243,8 +243,8 @@ function teamExpectedGoalsBySide(summary) {
 function addExpectedGoalsFromLeaders(summary, sides) {
   const directXg = teamExpectedGoalsBySide(summary);
   const xgc = goalkeeperXgcBySide(summary);
-  const homeXg = directXg.home ?? xgc.away;
-  const awayXg = directXg.away ?? xgc.home;
+  const homeXg = xgc.away ?? directXg.home;
+  const awayXg = xgc.home ?? directXg.away;
   if (homeXg && !sides.home.some((stat) => stat.key === "expectedGoals")) {
     sides.home.splice(1, 0, { key: "expectedGoals", label: "xG", value: homeXg });
   }
