@@ -318,16 +318,20 @@ function matchPoints(prediction, game) {
   return 0;
 }
 
+function predictionGameId(prediction) {
+  return prediction?.matchId ?? prediction?.gameId ?? prediction?.match_id ?? prediction?.id;
+}
+
 function standings(players, games) {
   return players
     .map((player) => {
       const predictions = Array.isArray(player.predictions) ? player.predictions : [];
       const points = predictions.reduce((sum, prediction) => {
-        const game = games.find((item) => String(item.id) === String(prediction.matchId));
+        const game = games.find((item) => String(item.id) === String(predictionGameId(prediction)));
         return sum + (game ? matchPoints(prediction, game) : 0);
       }, 0);
       const exact = predictions.filter((prediction) => {
-        const game = games.find((item) => String(item.id) === String(prediction.matchId));
+        const game = games.find((item) => String(item.id) === String(predictionGameId(prediction)));
         return game ? matchPoints(prediction, game) === 5 : false;
       }).length;
       return { name: player.name, points, exact };
@@ -605,7 +609,7 @@ function firstName(name) {
 
 function predictionForGame(player, game) {
   return (Array.isArray(player.predictions) ? player.predictions : []).find(
-    (prediction) => String(prediction.matchId) === String(game.id),
+    (prediction) => String(predictionGameId(prediction)) === String(game.id),
   );
 }
 
@@ -624,7 +628,7 @@ function upsertPrediction(predictions, game, home, away) {
     away,
     locked: false,
   };
-  const next = Array.isArray(predictions) ? predictions.filter((prediction) => String(prediction.matchId) !== String(game.id)) : [];
+  const next = Array.isArray(predictions) ? predictions.filter((prediction) => String(predictionGameId(prediction)) !== String(game.id)) : [];
   next.push(nextPrediction);
   return next;
 }
@@ -753,6 +757,8 @@ function predictionPrompt(games, player) {
 
   const lines = [
     "🎯 Yön veikkaukset",
+    `Veikkaaja: ${player.name}`,
+    `Tallennettuja veikkauksia: ${Array.isArray(player.predictions) ? player.predictions.length : 0}`,
     "",
     "Vastaa tähän privaan esim:",
     "1 2-1",
