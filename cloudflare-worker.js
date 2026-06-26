@@ -7,6 +7,24 @@ const REMINDER_WINDOW_MINUTES = 8;
 const ROUND_START_HOUR = 18;
 const ROUND_END_HOUR = 10;
 const HELSINKI_UTC_OFFSET_HOURS = 3;
+const STADIUM_TO_FINLAND_HOURS = {
+  "1": 9,
+  "2": 9,
+  "3": 9,
+  "4": 8,
+  "5": 8,
+  "6": 8,
+  "7": 7,
+  "8": 7,
+  "9": 7,
+  "10": 7,
+  "11": 7,
+  "12": 7,
+  "13": 10,
+  "14": 10,
+  "15": 10,
+  "16": 10,
+};
 const BOT_STATE_COLLECTION = "telegramBotState";
 const CACHE_SECONDS = {
   games: 20,
@@ -434,7 +452,16 @@ function gameTimestamp(game) {
   const [datePart, timePart] = String(game.local_date || "").split(" ");
   const [month, day, year] = datePart.split("/").map(Number);
   const [hour, minute] = timePart.split(":").map(Number);
-  return new Date(Date.UTC(year, month - 1, day, hour - HELSINKI_UTC_OFFSET_HOURS, minute || 0));
+  const stadiumToFinlandHours = STADIUM_TO_FINLAND_HOURS[String(game.stadium_id)] ?? 0;
+  return new Date(
+    Date.UTC(
+      year,
+      month - 1,
+      day,
+      hour + stadiumToFinlandHours - HELSINKI_UTC_OFFSET_HOURS,
+      minute || 0,
+    ),
+  );
 }
 
 function helsinkiParts(date) {
@@ -764,7 +791,6 @@ function predictionPrompt(games, player) {
     "🎯 Yön veikkaukset",
     `Veikkaaja: ${player.name}`,
     `Tallennettuja veikkauksia: ${predictionIds.length}`,
-    `Debug: pelit ${games.map((game) => game.id).join(", ")} / tallennetut lopusta ${predictionIds.slice(-8).join(", ") || "ei yhtään"}`,
     "",
     "Vastaa tähän privaan esim:",
     "1 2-1",
