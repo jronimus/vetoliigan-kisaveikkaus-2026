@@ -745,6 +745,11 @@ function shouldSendNightReminder(games, now = new Date()) {
 }
 
 function predictionPrompt(games, player) {
+  const predictionIds = (Array.isArray(player.predictions) ? player.predictions : [])
+    .map(predictionGameId)
+    .filter((id) => id !== undefined && id !== null)
+    .map(String);
+
   if (!games.length) {
     return [
       "🎯 Yön veikkaukset",
@@ -758,7 +763,8 @@ function predictionPrompt(games, player) {
   const lines = [
     "🎯 Yön veikkaukset",
     `Veikkaaja: ${player.name}`,
-    `Tallennettuja veikkauksia: ${Array.isArray(player.predictions) ? player.predictions.length : 0}`,
+    `Tallennettuja veikkauksia: ${predictionIds.length}`,
+    `Debug: pelit ${games.map((game) => game.id).join(", ")} / tallennetut lopusta ${predictionIds.slice(-8).join(", ") || "ei yhtään"}`,
     "",
     "Vastaa tähän privaan esim:",
     "1 2-1",
