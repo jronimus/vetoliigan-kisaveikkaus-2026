@@ -5,6 +5,11 @@ workers_dev = true
 
 [vars]
 FIREBASE_PROJECT_ID = "vetoliigan-kisaveikkaus-2026"
+TELEGRAM_CHAT_ID = "-1001048034441"
+TELEGRAM_PLAYER_MENTIONS = '{"Joni":"@jonironimus","Ilpo":"@ilippos","Sami":"@samikarki","Santeri":"@Santeri"}'
+
+[triggers]
+crons = ["*/5 * * * *"]
 
 [observability]
 enabled = true

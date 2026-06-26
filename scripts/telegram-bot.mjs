@@ -6,6 +6,7 @@ import { getFirestore } from "firebase-admin/firestore";
 
 const PLAYERS_COLLECTION = "players";
 const DEFAULT_FIREBASE_PROJECT_ID = "vetoliigan-kisaveikkaus-2026";
+const APP_URL = "https://jronimus.github.io/vetoliigan-kisaveikkaus-2026/";
 
 function usage() {
   return [
@@ -140,12 +141,9 @@ function standings(players, games) {
 }
 
 function standingsMessage(table) {
-  const rows = table.map((player, index) => {
-    const exact = player.exact === 1 ? "1 täysosuma" : `${player.exact} täysosumaa`;
-    return `${index + 1}. ${player.name}: ${player.points} p (${exact})`;
-  });
-
-  return ["Vetoliigan pistetaulukko", "", ...rows].join("\n");
+  const rankIcons = ["🥇", "🥈", "🥉", "4️⃣"];
+  const rows = table.slice(0, 4).map((player, index) => `${rankIcons[index] || `${index + 1}.`} ${player.name} — ${player.points} p`);
+  return ["🏆 VETOLIIGAN PISTETAULUKKO", "", ...rows, "", `👉 ${APP_URL}`].join("\n");
 }
 
 async function sendTelegramMessage(text) {

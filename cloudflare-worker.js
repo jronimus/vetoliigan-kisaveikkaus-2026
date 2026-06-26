@@ -1,6 +1,13 @@
 const TARGET = "https://worldcup26.ir";
 const PLAYERS_COLLECTION = "players";
 const FIREBASE_PROJECT_ID = "vetoliigan-kisaveikkaus-2026";
+const APP_URL = "https://jronimus.github.io/vetoliigan-kisaveikkaus-2026/";
+const REMINDER_HOURS_BEFORE_FIRST_GAME = 4;
+const REMINDER_WINDOW_MINUTES = 8;
+const ROUND_START_HOUR = 18;
+const ROUND_END_HOUR = 10;
+const HELSINKI_UTC_OFFSET_HOURS = 3;
+const BOT_STATE_COLLECTION = "telegramBotState";
 const CACHE_SECONDS = {
   games: 20,
   groups: 60,
@@ -152,12 +159,18 @@ async function googleAccessToken(env) {
   return json.access_token;
 }
 
-async function firestoreJson(env, path) {
+async function firestoreJson(env, path, init = {}) {
   const token = await googleAccessToken(env);
   const response = await fetch(`https://firestore.googleapis.com/v1/${path}`, {
-    headers: { authorization: `Bearer ${token}` },
+    ...init,
+    headers: {
+      authorization: `Bearer ${token}`,
+      ...(init.body ? { "content-type": "application/json" } : {}),
+      ...(init.headers || {}),
+    },
   });
   if (!response.ok) {
+    if (response.status === 404) return null;
     throw new Error(`Firestore request failed: ${response.status} ${await response.text()}`);
   }
   return response.json();
@@ -196,6 +209,29 @@ async function readPlayers(env) {
       predictions: Array.isArray(values.predictions) ? values.predictions : [],
       bonus: values.bonus || {},
     };
+  });
+}
+
+function botStatePath(env, key) {
+  const projectId = env.FIREBASE_PROJECT_ID || FIREBASE_PROJECT_ID;
+  return `projects/${projectId}/databases/(default)/documents/${BOT_STATE_COLLECTION}/${key}`;
+}
+
+async function botStateSent(env, key) {
+  const data = await firestoreJson(env, botStatePath(env, key));
+  return Boolean(data?.fields?.sent?.booleanValue);
+}
+
+async function markBotStateSent(env, key, payload = {}) {
+  await firestoreJson(env, botStatePath(env, key), {
+    method: "PATCH",
+    body: JSON.stringify({
+      fields: {
+        sent: { booleanValue: true },
+        sentAt: { timestampValue: new Date().toISOString() },
+        payload: { stringValue: JSON.stringify(payload).slice(0, 1500) },
+      },
+    }),
   });
 }
 
@@ -261,11 +297,9 @@ function standings(players, games) {
 }
 
 function standingsMessage(table) {
-  const rows = table.map((player, index) => {
-    const exact = player.exact === 1 ? "1 täysosuma" : `${player.exact} täysosumaa`;
-    return `${index + 1}. ${player.name}: ${player.points} p (${exact})`;
-  });
-  return ["Vetoliigan pistetaulukko", "", ...rows].join("\n");
+  const rankIcons = ["🥇", "🥈", "🥉", "4️⃣"];
+  const rows = table.slice(0, 4).map((player, index) => `${rankIcons[index] || `${index + 1}.`} ${player.name} — ${player.points} p`);
+  return ["🏆 VETOLIIGAN PISTETAULUKKO", "", ...rows, "", `👉 ${APP_URL}`].join("\n");
 }
 
 function teamName(game, side) {
@@ -274,6 +308,62 @@ function teamName(game, side) {
   const value = game[key] || game[labelKey] || (side === "home" ? "Kotijoukkue" : "Vierasjoukkue");
   if (value === "Democratic Republic of the Congo") return "DR Kongo";
   return value;
+}
+
+const TEAM_EMOJIS = {
+  Algeria: "🇩🇿",
+  Argentina: "🇦🇷",
+  Australia: "🇦🇺",
+  Austria: "🇦🇹",
+  Belgium: "🇧🇪",
+  "Bosnia and Herzegovina": "🇧🇦",
+  Brazil: "🇧🇷",
+  Canada: "🇨🇦",
+  Chile: "🇨🇱",
+  Colombia: "🇨🇴",
+  Croatia: "🇭🇷",
+  "Curaçao": "🇨🇼",
+  "Czech Republic": "🇨🇿",
+  "Democratic Republic of the Congo": "🇨🇩",
+  "DR Kongo": "🇨🇩",
+  Ecuador: "🇪🇨",
+  Egypt: "🇪🇬",
+  England: "🏴",
+  France: "🇫🇷",
+  Germany: "🇩🇪",
+  Ghana: "🇬🇭",
+  Haiti: "🇭🇹",
+  Iran: "🇮🇷",
+  Iraq: "🇮🇶",
+  "Ivory Coast": "🇨🇮",
+  Japan: "🇯🇵",
+  Jordan: "🇯🇴",
+  Mexico: "🇲🇽",
+  Morocco: "🇲🇦",
+  Netherlands: "🇳🇱",
+  "New Zealand": "🇳🇿",
+  Norway: "🇳🇴",
+  Panama: "🇵🇦",
+  Paraguay: "🇵🇾",
+  Portugal: "🇵🇹",
+  Qatar: "🇶🇦",
+  "Saudi Arabia": "🇸🇦",
+  Scotland: "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+  Senegal: "🇸🇳",
+  "South Africa": "🇿🇦",
+  "South Korea": "🇰🇷",
+  Spain: "🇪🇸",
+  Sweden: "🇸🇪",
+  Switzerland: "🇨🇭",
+  Tunisia: "🇹🇳",
+  Turkey: "🇹🇷",
+  "United States": "🇺🇸",
+  Uruguay: "🇺🇾",
+  Uzbekistan: "🇺🇿",
+};
+
+function teamEmoji(game, side) {
+  return TEAM_EMOJIS[teamName(game, side)] || TEAM_EMOJIS[game[side === "home" ? "home_team_name_en" : "away_team_name_en"]] || "";
 }
 
 function formatFinnishDate(date) {
@@ -289,15 +379,23 @@ function formatFinnishDate(date) {
     .replace(",", "");
 }
 
+function formatTime(date) {
+  return new Intl.DateTimeFormat("fi-FI", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Helsinki",
+  }).format(date);
+}
+
 function gameTimestamp(game) {
   const [datePart, timePart] = String(game.local_date || "").split(" ");
   const [month, day, year] = datePart.split("/").map(Number);
   const [hour, minute] = timePart.split(":").map(Number);
-  return new Date(Date.UTC(year, month - 1, day, hour - 3, minute || 0));
+  return new Date(Date.UTC(year, month - 1, day, hour - HELSINKI_UTC_OFFSET_HOURS, minute || 0));
 }
 
-function nightGames(games, now = new Date()) {
-  const helsinkiNowParts = new Intl.DateTimeFormat("en-CA", {
+function helsinkiParts(date) {
+  const helsinkiDateParts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Helsinki",
     year: "numeric",
     month: "2-digit",
@@ -305,15 +403,39 @@ function nightGames(games, now = new Date()) {
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
-  }).formatToParts(now);
-  const part = (type) => helsinkiNowParts.find((item) => item.type === type)?.value;
-  const year = Number(part("year"));
-  const month = Number(part("month"));
-  const day = Number(part("day"));
-  const hour = Number(part("hour"));
-  const startDay = hour < 10 ? day - 1 : day;
-  const start = new Date(Date.UTC(year, month - 1, startDay, 19, 0));
-  const end = new Date(Date.UTC(year, month - 1, startDay + 1, 7, 0));
+  }).formatToParts(date);
+  const part = (type) => helsinkiDateParts.find((item) => item.type === type)?.value;
+  return {
+    year: Number(part("year")),
+    month: Number(part("month")),
+    day: Number(part("day")),
+    hour: Number(part("hour")),
+    minute: Number(part("minute")),
+  };
+}
+
+function helsinkiLocalDateToUtc(year, month, day, hour, minute = 0) {
+  return new Date(Date.UTC(year, month - 1, day, hour - HELSINKI_UTC_OFFSET_HOURS, minute));
+}
+
+function addUtcDays(date, days) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function roundWindow(now = new Date()) {
+  const { year, month, day, hour } = helsinkiParts(now);
+  const startDay = hour < ROUND_END_HOUR ? day - 1 : day;
+  const start = helsinkiLocalDateToUtc(year, month, startDay, ROUND_START_HOUR);
+  const end = helsinkiLocalDateToUtc(year, month, startDay + 1, ROUND_END_HOUR);
+  const idParts = helsinkiParts(start);
+  const id = `${idParts.year}-${String(idParts.month).padStart(2, "0")}-${String(idParts.day).padStart(2, "0")}`;
+  return { id, start, end };
+}
+
+function nightGames(games, now = new Date()) {
+  const { start, end } = roundWindow(now);
 
   return games
     .filter((game) => {
@@ -321,6 +443,25 @@ function nightGames(games, now = new Date()) {
       return time >= start && time <= end;
     })
     .sort((a, b) => gameTimestamp(a) - gameTimestamp(b));
+}
+
+function futureNightGames(games, now = new Date()) {
+  return nightGames(games, now).filter((game) => gameTimestamp(game) > now && !isFinished(game));
+}
+
+function previousNightGames(games, now = new Date()) {
+  return nightGames(games, addUtcDays(now, -1));
+}
+
+function completedNightGamesForSummary(games, now = new Date()) {
+  const current = nightGames(games, now);
+  if (current.length && current.every(isFinished)) return { games: current, window: roundWindow(now) };
+
+  const previousNow = addUtcDays(now, -1);
+  const previous = previousNightGames(games, now);
+  if (previous.length && previous.every(isFinished)) return { games: previous, window: roundWindow(previousNow) };
+
+  return { games: [], window: roundWindow(now) };
 }
 
 function nightGamesMessage(games) {
@@ -336,6 +477,143 @@ function nightGamesMessage(games) {
   return ["Vetoliigan yön pelit", "", ...rows].join("\n");
 }
 
+function nightSummaryRankingRows(rows) {
+  const rankIcons = ["🥇", "🥈", "🥉", "4️⃣"];
+  return rows.map((row, index) => `${rankIcons[index] || `${index + 1}.`} ${row.name} — ${row.points} p`);
+}
+
+function nightPoints(players, games) {
+  return players
+    .map((player) => {
+      const points = games.reduce((sum, game) => {
+        const prediction = predictionForGame(player, game);
+        return sum + (prediction ? matchPoints(prediction, game) : 0);
+      }, 0);
+      return { name: player.name, points };
+    })
+    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "fi"));
+}
+
+function pointEmoji(points) {
+  if (points === 5) return "🟢";
+  if (points === 3) return "🔵";
+  if (points === 2) return "🟡";
+  if (points === 1) return "🟠";
+  return "⚪";
+}
+
+function predictionText(prediction) {
+  return predictionIsComplete(prediction) ? `${prediction.home}-${prediction.away}` : "–";
+}
+
+function nightSummaryMessage(games, players, allGames) {
+  const lines = ["🌙 Yön MM-kierros on pelattu!"];
+
+  games.forEach((game) => {
+    lines.push("");
+    lines.push(
+      `⚽ ${teamEmoji(game, "home")} ${teamName(game, "home")} ${parseScore(game.home_score)}-${parseScore(game.away_score)} ${teamName(game, "away")} ${teamEmoji(game, "away")}`,
+    );
+
+    players.forEach((player) => {
+      const prediction = predictionForGame(player, game);
+      const points = prediction ? matchPoints(prediction, game) : 0;
+      lines.push(`${player.name} ${predictionText(prediction)} ${pointEmoji(points)} +${points} p`);
+    });
+  });
+
+  lines.push("");
+  lines.push("━━━━━━━━━━━━━━");
+  lines.push("");
+  lines.push("🌙 Yön pisteet");
+  lines.push(...nightSummaryRankingRows(nightPoints(players, games)));
+  lines.push("");
+  lines.push("🏆 Kokonaistilanne");
+  lines.push(...nightSummaryRankingRows(standings(players, allGames)));
+  lines.push("");
+  lines.push(`👉 ${APP_URL}`);
+
+  return lines.join("\n");
+}
+
+function firstName(name) {
+  return String(name || "").trim().split(/\s+/)[0] || "Pelaaja";
+}
+
+function predictionForGame(player, game) {
+  return (Array.isArray(player.predictions) ? player.predictions : []).find(
+    (prediction) => String(prediction.matchId) === String(game.id),
+  );
+}
+
+function predictionIsComplete(prediction) {
+  return Number.isFinite(Number(prediction?.home)) && Number.isFinite(Number(prediction?.away));
+}
+
+function missingPlayersForGame(players, game) {
+  return players.filter((player) => !predictionIsComplete(predictionForGame(player, game)));
+}
+
+function pluralGame(count) {
+  return count === 1 ? "1 veikkaus puuttuu" : `${count} veikkausta puuttuu`;
+}
+
+function hoursText(hours) {
+  return hours === 1 ? "1 tunnin" : `${hours} tunnin`;
+}
+
+function playerMentions(env) {
+  try {
+    return JSON.parse(env.TELEGRAM_PLAYER_MENTIONS || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function missingReminderMessage(games, players, env, now = new Date()) {
+  const firstGame = games[0];
+  const hoursToFirst = Math.max(1, Math.round((gameTimestamp(firstGame) - now) / 3600000));
+  const missingCounts = new Map(players.map((player) => [player.name, 0]));
+  const lines = [`🌙 Yön MM-kierros alkaa ${hoursText(hoursToFirst)} päästä!`];
+
+  games.forEach((game) => {
+    const missing = missingPlayersForGame(players, game);
+    missing.forEach((player) => {
+      missingCounts.set(player.name, (missingCounts.get(player.name) || 0) + 1);
+    });
+
+    lines.push("");
+    lines.push(
+      `⚽ ${formatTime(gameTimestamp(game))} ${teamEmoji(game, "home")} ${teamName(game, "home")} – ${teamEmoji(game, "away")} ${teamName(game, "away")}`,
+    );
+    lines.push(missing.length ? `❌ Puuttuu: ${missing.map((player) => firstName(player.name)).join(", ")}` : "✅ Kaikki valmiina");
+  });
+
+  const missingSummary = [...missingCounts.entries()].filter(([, count]) => count > 0);
+  lines.push("");
+
+  if (missingSummary.length) {
+    const mentions = playerMentions(env);
+    lines.push("📝 Vielä ehtii:");
+    missingSummary.forEach(([name, count]) => {
+      lines.push(`${mentions[name] || firstName(name)} – ${pluralGame(count)}`);
+    });
+  } else {
+    lines.push("🎉 Kaikki veikkaukset ovat sisällä!");
+  }
+
+  lines.push("");
+  lines.push(`👉 ${APP_URL}`);
+  return lines.join("\n");
+}
+
+function shouldSendNightReminder(games, now = new Date()) {
+  if (!games.length) return false;
+  const firstStart = gameTimestamp(games[0]);
+  const target = firstStart.getTime() - REMINDER_HOURS_BEFORE_FIRST_GAME * 3600000;
+  return Math.abs(now.getTime() - target) <= REMINDER_WINDOW_MINUTES * 60000;
+}
+
 async function commandMessage(command, env) {
   const games = await fetchWorldCupEndpoint("games");
 
@@ -344,16 +622,11 @@ async function commandMessage(command, env) {
     return standingsMessage(standings(players, games));
   }
 
-  if (command === "/vetoyönpelit" || command === "/vetoyonpelit") {
-    return nightGamesMessage(nightGames(games));
-  }
-
   return [
     "En tunnistanut komentoa.",
     "",
     "Käytössä olevat komennot:",
     "/vetotaulukko",
-    "/vetoyönpelit",
   ].join("\n");
 }
 
@@ -371,6 +644,57 @@ async function sendTelegramMessage(env, chatId, text) {
   if (!response.ok) {
     throw new Error(`Telegram send failed: ${response.status} ${await response.text()}`);
   }
+}
+
+async function sendNightReminder(env, now = new Date()) {
+  const [games, players] = await Promise.all([fetchWorldCupEndpoint("games"), readPlayers(env)]);
+  const window = roundWindow(now);
+  const roundGames = nightGames(games, now);
+  const upcomingGames = roundGames.filter((game) => gameTimestamp(game) > now && !isFinished(game));
+  const stateKey = `reminder-${window.id}`;
+
+  if (!shouldSendNightReminder(roundGames, now)) {
+    return { sent: false, reason: "Not in reminder window", games: upcomingGames.length };
+  }
+
+  if (await botStateSent(env, stateKey)) {
+    return { sent: false, reason: "Already sent", games: upcomingGames.length };
+  }
+
+  await sendTelegramMessage(env, requireEnv(env, "TELEGRAM_CHAT_ID"), missingReminderMessage(upcomingGames, players, env, now));
+  await markBotStateSent(env, stateKey, { type: "reminder", round: window.id, games: upcomingGames.map((game) => game.id) });
+  return { sent: true, type: "reminder", games: upcomingGames.length };
+}
+
+function shouldSendNightSummary(games, now = new Date()) {
+  if (!games.length || !games.every(isFinished)) return false;
+  const latestKickoff = games.reduce((latest, game) => Math.max(latest, gameTimestamp(game).getTime()), 0);
+  const earliestSend = latestKickoff + 90 * 60000;
+  const latestSend = latestKickoff + 6 * 3600000;
+  return now.getTime() >= earliestSend && now.getTime() <= latestSend;
+}
+
+async function sendNightSummary(env, now = new Date()) {
+  const [games, players] = await Promise.all([fetchWorldCupEndpoint("games"), readPlayers(env)]);
+  const { games: completedGames, window } = completedNightGamesForSummary(games, now);
+  const stateKey = `summary-${window.id}`;
+
+  if (!shouldSendNightSummary(completedGames, now)) {
+    return { sent: false, reason: "Not in summary window", games: completedGames.length };
+  }
+
+  if (await botStateSent(env, stateKey)) {
+    return { sent: false, reason: "Already sent", games: completedGames.length };
+  }
+
+  await sendTelegramMessage(env, requireEnv(env, "TELEGRAM_CHAT_ID"), nightSummaryMessage(completedGames, players, games));
+  await markBotStateSent(env, stateKey, { type: "summary", round: window.id, games: completedGames.map((game) => game.id) });
+  return { sent: true, type: "summary", games: completedGames.length };
+}
+
+async function runScheduledTelegram(env, now = new Date()) {
+  const [reminder, summary] = await Promise.allSettled([sendNightReminder(env, now), sendNightSummary(env, now)]);
+  return { reminder, summary };
 }
 
 function telegramCommand(text) {
@@ -395,7 +719,7 @@ async function handleTelegramWebhook(request, env, ctx) {
     return textResponse("OK");
   }
 
-  if (command === "/vetotaulukko" || command === "/vetoyönpelit" || command === "/vetoyonpelit") {
+  if (command === "/vetotaulukko") {
     ctx.waitUntil(
       commandMessage(command, env)
         .then((reply) => sendTelegramMessage(env, chatId, reply))
@@ -441,6 +765,42 @@ export default {
         return registerTelegramWebhook(request, env);
       }
 
+      if (request.method === "GET" && url.pathname === "/telegram/test-night-reminder") {
+        const expectedSecret = requireEnv(env, "TELEGRAM_WEBHOOK_SECRET");
+        if (url.searchParams.get("secret") !== expectedSecret) {
+          return textResponse("Unauthorized", { status: 401 });
+        }
+        const dryRun = url.searchParams.get("dryRun") !== "0";
+        const [games, players] = await Promise.all([fetchWorldCupEndpoint("games"), readPlayers(env)]);
+        const now = new Date(url.searchParams.get("now") || Date.now());
+        const upcomingGames = futureNightGames(games, now);
+        const message = upcomingGames.length
+          ? missingReminderMessage(upcomingGames, players, env, now)
+          : "Tälle yölle ei löytynyt tulevia pelejä.";
+        if (!dryRun) {
+          await sendTelegramMessage(env, requireEnv(env, "TELEGRAM_CHAT_ID"), message);
+        }
+        return jsonResponse({ dryRun, games: upcomingGames.length, message });
+      }
+
+      if (request.method === "GET" && url.pathname === "/telegram/test-night-summary") {
+        const expectedSecret = requireEnv(env, "TELEGRAM_WEBHOOK_SECRET");
+        if (url.searchParams.get("secret") !== expectedSecret) {
+          return textResponse("Unauthorized", { status: 401 });
+        }
+        const dryRun = url.searchParams.get("dryRun") !== "0";
+        const now = new Date(url.searchParams.get("now") || Date.now());
+        const [games, players] = await Promise.all([fetchWorldCupEndpoint("games"), readPlayers(env)]);
+        const { games: completedGames, window } = completedNightGamesForSummary(games, now);
+        const message = completedGames.length
+          ? nightSummaryMessage(completedGames, players, games)
+          : "Tälle yölle ei löytynyt pelattuja pelejä.";
+        if (!dryRun) {
+          await sendTelegramMessage(env, requireEnv(env, "TELEGRAM_CHAT_ID"), message);
+        }
+        return jsonResponse({ dryRun, round: window.id, games: completedGames.length, message });
+      }
+
       const proxyResponse = await handleProxy(request, url);
       if (proxyResponse) return proxyResponse;
 
@@ -448,5 +808,9 @@ export default {
     } catch (error) {
       return jsonResponse({ error: error.message }, { status: 500 });
     }
+  },
+
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil(runScheduledTelegram(env));
   },
 };
