@@ -488,6 +488,30 @@ function futureNightGames(games, now = new Date()) {
   return nightGames(games, now).filter((game) => gameTimestamp(game) > now && !isFinished(game));
 }
 
+function predictionNightGames(games, now = new Date()) {
+  const seenWindows = new Set();
+
+  for (let offset = 0; offset < 14; offset += 1) {
+    const candidateNow = addUtcDays(now, offset);
+    const window = roundWindow(candidateNow);
+    if (seenWindows.has(window.id)) continue;
+    seenWindows.add(window.id);
+
+    const availableGames = games
+      .filter((game) => {
+        const time = gameTimestamp(game);
+        return time >= window.start && time <= window.end && time > now && !isFinished(game);
+      })
+      .sort((a, b) => gameTimestamp(a) - gameTimestamp(b));
+
+    if (availableGames.length) {
+      return availableGames;
+    }
+  }
+
+  return [];
+}
+
 function previousNightGames(games, now = new Date()) {
   return nightGames(games, addUtcDays(now, -1));
 }
@@ -815,7 +839,7 @@ async function handleBetCommand(message, env) {
     return;
   }
 
-  const availableGames = futureNightGames(games, new Date());
+  const availableGames = predictionNightGames(games, new Date());
   const prompt = predictionPrompt(availableGames, player);
 
   if (message.chat.type === "private") {
@@ -847,7 +871,7 @@ async function handlePrivatePredictionMessage(message, env) {
     return;
   }
 
-  const availableGames = futureNightGames(games, new Date());
+  const availableGames = predictionNightGames(games, new Date());
   const parsed = parsePredictionLines(message.text, availableGames.length);
 
   if (!parsed.length) {
