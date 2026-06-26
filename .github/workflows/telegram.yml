@@ -1,0 +1,41 @@
+name: Telegram bot
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "Mitä lähetetään Telegramiin?"
+        required: true
+        default: "test"
+        type: choice
+        options:
+          - test
+          - standings
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm install
+
+      - name: Refresh World Cup data
+        if: inputs.command == 'standings'
+        run: npm run fetch-data
+
+      - name: Send Telegram message
+        run: npm run telegram:${{ inputs.command }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FIREBASE_PROJECT_ID: vetoliigan-kisaveikkaus-2026
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}

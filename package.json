@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "fetch-data": "node scripts/fetch-worldcup-data.mjs",
+    "telegram:test": "node scripts/telegram-bot.mjs test",
+    "telegram:standings": "node scripts/telegram-bot.mjs standings",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -14,6 +16,7 @@
   "dependencies": {
     "clsx": "^2.1.1",
     "firebase": "^12.14.0",
+    "firebase-admin": "^14.1.0",
     "lucide-react": "^1.17.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
