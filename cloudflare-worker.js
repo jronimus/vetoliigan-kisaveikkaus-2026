@@ -198,6 +198,28 @@ function firestoreDocumentData(document) {
   );
 }
 
+function toFirestoreValue(value) {
+  if (value === null || value === undefined) return { nullValue: null };
+  if (typeof value === "string") return { stringValue: value };
+  if (typeof value === "boolean") return { booleanValue: value };
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
+  }
+  if (Array.isArray(value)) {
+    return {
+      arrayValue: value.length ? { values: value.map(toFirestoreValue) } : {},
+    };
+  }
+  if (typeof value === "object") {
+    return {
+      mapValue: {
+        fields: Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, toFirestoreValue(nested)])),
+      },
+    };
+  }
+  return { stringValue: String(value) };
+}
+
 async function readPlayers(env) {
   const projectId = env.FIREBASE_PROJECT_ID || FIREBASE_PROJECT_ID;
   const data = await firestoreJson(env, `projects/${projectId}/databases/(default)/documents/${PLAYERS_COLLECTION}`);
@@ -210,6 +232,23 @@ async function readPlayers(env) {
       bonus: values.bonus || {},
     };
   });
+}
+
+async function writePlayerPredictions(env, playerName, predictions) {
+  const projectId = env.FIREBASE_PROJECT_ID || FIREBASE_PROJECT_ID;
+  const docId = encodeURIComponent(playerName);
+  await firestoreJson(
+    env,
+    `projects/${projectId}/databases/(default)/documents/${PLAYERS_COLLECTION}/${docId}?updateMask.fieldPaths=predictions`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        fields: {
+          predictions: toFirestoreValue(predictions),
+        },
+      }),
+    },
+  );
 }
 
 function botStatePath(env, key) {
@@ -554,6 +593,18 @@ function missingPlayersForGame(players, game) {
   return players.filter((player) => !predictionIsComplete(predictionForGame(player, game)));
 }
 
+function upsertPrediction(predictions, game, home, away) {
+  const nextPrediction = {
+    matchId: String(game.id),
+    home,
+    away,
+    locked: false,
+  };
+  const next = Array.isArray(predictions) ? predictions.filter((prediction) => String(prediction.matchId) !== String(game.id)) : [];
+  next.push(nextPrediction);
+  return next;
+}
+
 function pluralGame(count) {
   return count === 1 ? "1 veikkaus puuttuu" : `${count} veikkausta puuttuu`;
 }
@@ -568,6 +619,55 @@ function playerMentions(env) {
   } catch {
     return {};
   }
+}
+
+function playerIdentities(env) {
+  try {
+    return JSON.parse(env.TELEGRAM_PLAYER_IDENTITIES || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function normalizeIdentity(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^@/, "")
+    .toLowerCase();
+}
+
+function telegramUserCandidates(user) {
+  return [
+    user?.id,
+    user?.username,
+    user?.first_name,
+    [user?.first_name, user?.last_name].filter(Boolean).join(" "),
+  ]
+    .map(normalizeIdentity)
+    .filter(Boolean);
+}
+
+function playerNameForTelegramUser(user, env, players) {
+  const candidates = new Set(telegramUserCandidates(user));
+  const identities = playerIdentities(env);
+  const mentions = playerMentions(env);
+
+  for (const player of players) {
+    const accepted = [
+      player.name,
+      firstName(player.name),
+      mentions[player.name],
+      ...(Array.isArray(identities[player.name]) ? identities[player.name] : []),
+    ]
+      .map(normalizeIdentity)
+      .filter(Boolean);
+
+    if (accepted.some((value) => candidates.has(value))) {
+      return player.name;
+    }
+  }
+
+  return undefined;
 }
 
 function missingReminderMessage(games, players, env, now = new Date()) {
@@ -604,6 +704,8 @@ function missingReminderMessage(games, players, env, now = new Date()) {
 
   lines.push("");
   lines.push(`👉 ${APP_URL}`);
+  lines.push("");
+  lines.push("Voit myös veikata tuloksia kirjoittamalla /veikkaa");
   return lines.join("\n");
 }
 
@@ -612,6 +714,165 @@ function shouldSendNightReminder(games, now = new Date()) {
   const firstStart = gameTimestamp(games[0]);
   const target = firstStart.getTime() - REMINDER_HOURS_BEFORE_FIRST_GAME * 3600000;
   return Math.abs(now.getTime() - target) <= REMINDER_WINDOW_MINUTES * 60000;
+}
+
+function predictionPrompt(games, player) {
+  if (!games.length) {
+    return [
+      "🎯 Yön veikkaukset",
+      "",
+      "Tälle yölle ei löytynyt enää veikattavia pelejä.",
+      "",
+      `👉 ${APP_URL}`,
+    ].join("\n");
+  }
+
+  const lines = [
+    "🎯 Yön veikkaukset",
+    "",
+    "Vastaa tähän privaan esim:",
+    "1 2-1",
+    "2 1-1",
+    "",
+    "Voit muokata veikkausta lähettämällä uuden tuloksen ennen pelin alkua.",
+  ];
+
+  games.forEach((game, index) => {
+    const existing = predictionForGame(player, game);
+    lines.push("");
+    lines.push(
+      `${index + 1}. ${formatTime(gameTimestamp(game))} ${teamEmoji(game, "home")} ${teamName(game, "home")} – ${teamEmoji(game, "away")} ${teamName(game, "away")}`,
+    );
+    lines.push(`   Nykyinen: ${predictionIsComplete(existing) ? predictionText(existing) : "ei vielä veikkausta"}`);
+  });
+
+  lines.push("");
+  lines.push(`👉 ${APP_URL}`);
+  return lines.join("\n");
+}
+
+function parsePredictionLines(text, gameCount) {
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const parsed = [];
+
+  lines.forEach((line) => {
+    const indexed = line.match(/^(\d+)\s*[.)\-:]?\s*(\d+)\s*[-–:]\s*(\d+)$/);
+    const single = line.match(/^(\d+)\s*[-–:]\s*(\d+)$/);
+
+    if (indexed) {
+      parsed.push({
+        index: Number(indexed[1]) - 1,
+        home: Number(indexed[2]),
+        away: Number(indexed[3]),
+      });
+      return;
+    }
+
+    if (single && gameCount === 1) {
+      parsed.push({
+        index: 0,
+        home: Number(single[1]),
+        away: Number(single[2]),
+      });
+    }
+  });
+
+  return parsed.filter(
+    (item) =>
+      Number.isInteger(item.index) &&
+      item.index >= 0 &&
+      item.index < gameCount &&
+      Number.isInteger(item.home) &&
+      Number.isInteger(item.away) &&
+      item.home >= 0 &&
+      item.away >= 0,
+  );
+}
+
+function predictionConfirmation(saved) {
+  const lines = ["✅ Tallennettu:"];
+  saved.forEach(({ game, home, away, edited }) => {
+    lines.push(`${edited ? "↺" : "•"} ${teamName(game, "home")} – ${teamName(game, "away")} ${home}-${away}`);
+  });
+  lines.push("");
+  lines.push("Voit muokata ennen pelin alkua lähettämällä /veikkaa ja uuden tuloksen.");
+  return lines.join("\n");
+}
+
+async function handleBetCommand(message, env) {
+  const [games, players] = await Promise.all([fetchWorldCupEndpoint("games"), readPlayers(env)]);
+  const chatId = message.chat.id;
+  const from = message.from || {};
+  const playerName = playerNameForTelegramUser(from, env, players);
+  const player = players.find((item) => item.name === playerName);
+
+  if (!player) {
+    const help = "En tunnistanut sua Vetoliigan pelaajaksi. Tarkista, että Telegram-käyttäjänimi vastaa bottiin määritettyä nimeä.";
+    await sendTelegramMessage(env, chatId, help);
+    return;
+  }
+
+  const availableGames = futureNightGames(games, new Date());
+  const prompt = predictionPrompt(availableGames, player);
+
+  if (message.chat.type === "private") {
+    await sendTelegramMessage(env, chatId, prompt);
+    return;
+  }
+
+  try {
+    await sendTelegramMessage(env, from.id, prompt);
+    await sendTelegramMessage(env, chatId, `${firstName(player.name)}, lähetin veikkausviestin privana.`);
+  } catch {
+    await sendTelegramMessage(
+      env,
+      chatId,
+      `${firstName(player.name)}, en saanut privaviestiä läpi. Avaa @JR7FPL_Bot, paina Start ja kirjoita sitten /veikkaa uudestaan.`,
+    );
+  }
+}
+
+async function handlePrivatePredictionMessage(message, env) {
+  if (message.chat.type !== "private") return;
+
+  const [games, players] = await Promise.all([fetchWorldCupEndpoint("games"), readPlayers(env)]);
+  const playerName = playerNameForTelegramUser(message.from || {}, env, players);
+  const player = players.find((item) => item.name === playerName);
+
+  if (!player) {
+    await sendTelegramMessage(env, message.chat.id, "En tunnistanut sua Vetoliigan pelaajaksi. Kirjoita /veikkaa ryhmässä tai tarkista Telegram-käyttäjänimi.");
+    return;
+  }
+
+  const availableGames = futureNightGames(games, new Date());
+  const parsed = parsePredictionLines(message.text, availableGames.length);
+
+  if (!parsed.length) {
+    await sendTelegramMessage(env, message.chat.id, predictionPrompt(availableGames, player));
+    return;
+  }
+
+  let nextPredictions = Array.isArray(player.predictions) ? [...player.predictions] : [];
+  const saved = [];
+
+  parsed.forEach(({ index, home, away }) => {
+    const game = availableGames[index];
+    if (!game || gameTimestamp(game) <= new Date() || isFinished(game)) return;
+    const edited = Boolean(predictionForGame({ predictions: nextPredictions }, game));
+    nextPredictions = upsertPrediction(nextPredictions, game, home, away);
+    saved.push({ game, home, away, edited });
+  });
+
+  if (!saved.length) {
+    await sendTelegramMessage(env, message.chat.id, "Nuo pelit eivät ole enää veikattavissa.");
+    return;
+  }
+
+  await writePlayerPredictions(env, player.name, nextPredictions);
+  await sendTelegramMessage(env, message.chat.id, predictionConfirmation(saved));
 }
 
 async function commandMessage(command, env) {
@@ -627,6 +888,7 @@ async function commandMessage(command, env) {
     "",
     "Käytössä olevat komennot:",
     "/vetotaulukko",
+    "/veikkaa",
   ].join("\n");
 }
 
@@ -715,7 +977,7 @@ async function handleTelegramWebhook(request, env, ctx) {
   const text = message?.text;
   const command = telegramCommand(text);
 
-  if (!chatId || !command.startsWith("/")) {
+  if (!chatId || !text) {
     return textResponse("OK");
   }
 
@@ -724,6 +986,29 @@ async function handleTelegramWebhook(request, env, ctx) {
       commandMessage(command, env)
         .then((reply) => sendTelegramMessage(env, chatId, reply))
         .catch((error) => sendTelegramMessage(env, chatId, `Botti kompastui: ${error.message}`)),
+    );
+    return textResponse("OK");
+  }
+
+  if (command === "/veikkaa") {
+    ctx.waitUntil(
+      handleBetCommand(message, env).catch((error) => sendTelegramMessage(env, chatId, `Botti kompastui: ${error.message}`)),
+    );
+    return textResponse("OK");
+  }
+
+  if (command.startsWith("/")) {
+    ctx.waitUntil(
+      commandMessage(command, env)
+        .then((reply) => sendTelegramMessage(env, chatId, reply))
+        .catch((error) => sendTelegramMessage(env, chatId, `Botti kompastui: ${error.message}`)),
+    );
+    return textResponse("OK");
+  }
+
+  if (message.chat?.type === "private") {
+    ctx.waitUntil(
+      handlePrivatePredictionMessage(message, env).catch((error) => sendTelegramMessage(env, chatId, `Botti kompastui: ${error.message}`)),
     );
   }
 
