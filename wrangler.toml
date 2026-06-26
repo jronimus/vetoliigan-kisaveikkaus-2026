@@ -1,4 +1,10 @@
 name = "vetoliiga-worldcup-proxy"
 main = "cloudflare-worker.js"
-compatibility_date = "2026-06-15"
+compatibility_date = "2026-06-26"
 workers_dev = true
+
+[vars]
+FIREBASE_PROJECT_ID = "vetoliigan-kisaveikkaus-2026"
+
+[observability]
+enabled = true

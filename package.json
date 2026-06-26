@@ -11,6 +11,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "worker:dev": "npx wrangler dev",
     "deploy:worker": "npx wrangler deploy"
   },
   "dependencies": {
