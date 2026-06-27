@@ -17,6 +17,9 @@ const TEAM_ALIASES = {
   "bosnia hertsegovina": "bosnia and herzegovina",
   czechia: "czech republic",
   "korea republic": "south korea",
+  "dr congo": "democratic republic of the congo",
+  "congo dr": "democratic republic of the congo",
+  "democratic republic of congo": "democratic republic of the congo",
 };
 
 const STAT_LABELS = {
@@ -290,12 +293,33 @@ function mapSummary(eventId, summary) {
 
 await mkdir(outDir, { recursive: true });
 
-const [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
-  getJson("games"),
-  getJson("teams"),
-  getJson("groups"),
-  getJson("stadiums"),
-]);
+let gamesJson, teamsJson, groupsJson, stadiumsJson;
+try {
+  [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
+    getJson("games"),
+    getJson("teams"),
+    getJson("groups"),
+    getJson("stadiums"),
+  ]);
+} catch (err) {
+  console.warn("Failed to fetch from remote API, falling back to local files:", err.message);
+  const readLocal = async (name) => {
+    try {
+      const { readFile } = await import("node:fs/promises");
+      const content = await readFile(join(outDir, `${name}.json`), "utf8");
+      return JSON.parse(content);
+    } catch (e) {
+      console.error(`Failed to read local ${name}.json:`, e.message);
+      return {};
+    }
+  };
+  [gamesJson, teamsJson, groupsJson, stadiumsJson] = await Promise.all([
+    readLocal("games"),
+    readLocal("teams"),
+    readLocal("groups"),
+    readLocal("stadiums"),
+  ]);
+}
 
 const games = gamesJson.games ?? [];
 const dates = [...new Set(games.flatMap((game) => espnDateParamsAround(game.local_date)).filter(Boolean))];

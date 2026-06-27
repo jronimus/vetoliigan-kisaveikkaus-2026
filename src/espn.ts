@@ -236,6 +236,9 @@ const TEAM_ALIASES: Record<string, string> = {
   "bosnia hertsegovina": "bosnia and herzegovina",
   czechia: "czech republic",
   "korea republic": "south korea",
+  "dr congo": "democratic republic of the congo",
+  "congo dr": "democratic republic of the congo",
+  "democratic republic of congo": "democratic republic of the congo",
 };
 
 function canonicalTeam(name?: string) {
