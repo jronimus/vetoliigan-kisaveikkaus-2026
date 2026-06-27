@@ -587,6 +587,11 @@ img.avatar {
   justify-content: center;
   width: 100%;
   padding-bottom: 8px;
+  align-items: flex-start;
+}
+
+.match-row-flow.mixed-row {
+  align-items: stretch;
 }
 
 .older-games-section .match-row-flow {
@@ -599,6 +604,7 @@ img.avatar {
   width: 100%;
   gap: 16px;
   background: rgba(0, 0, 0, 0.32);
+  flex-grow: 1;
 }
 
 .match-card-column {
@@ -651,6 +657,37 @@ img.avatar {
   white-space: nowrap;
 }
 
+.match-stage-subheader {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-yellow);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: -6px;
+  margin-bottom: 12px;
+  height: auto;
+  opacity: 0.95;
+}
+
+.match-stage-subheader.empty {
+  visibility: hidden;
+}
+
+.regulation-score-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--accent-yellow);
+  opacity: 0.8;
+  letter-spacing: 0.05em;
+  margin: 6px 0;
+  padding: 4px 0;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
 .match-card-wrapper {
   position: relative;
   width: 100%;
@@ -658,6 +695,8 @@ img.avatar {
   box-sizing: border-box;
   margin-bottom: 0;
   overflow: visible;
+  display: flex;
+  flex-direction: column;
 }
 
 .match-row-flow .match-card-wrapper:nth-child(4n + 2) {
@@ -682,6 +721,7 @@ img.avatar {
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 0 20px rgba(29, 86, 235, 0.05);
   display: flex;
   overflow: hidden;
+  flex-grow: 1;
 }
 
 .match-card-border-backdrop {
@@ -711,6 +751,7 @@ img.avatar {
   box-shadow: none;
   display: flex;
   flex-direction: column;
+  flex-grow: 1;
 }
 
 .match-card::before {
@@ -1158,6 +1199,24 @@ img.avatar {
   border-top: none;
 }
 
+/* Slot between the flag card and team names, for AET/pen label.
+   Always rendered (when any card in the row has such a result)
+   so all cards on the row stay the same height. */
+.score-sublabel-slot {
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: center;
+  padding: 2px 4px 0;
+  line-height: 1.2;
+}
+
 .score-capsule.upcoming {
   background-color: #ffffff;
   color: #000000;
@@ -1262,6 +1321,11 @@ img.avatar {
 .team-name.away {
   text-align: right;
   width: 34%;
+}
+
+.team-name.eliminated {
+  text-decoration: line-through;
+  opacity: 0.45;
 }
 
 .scorer-strip-fixed {
@@ -2714,6 +2778,11 @@ img.avatar {
   border-radius: 16px;
 }
 
+.match-card-spacer {
+  flex-grow: 1;
+  min-height: 4px;
+}
+
 .prediction-row {
   display: grid;
   grid-template-columns: 1.2fr 1fr 1.2fr;
@@ -3273,6 +3342,7 @@ img.avatar {
   }
 
   .mobile-user-points {
+    display: inline-block;
     font-family: "Space Grotesk", sans-serif;
     font-size: 14px;
     font-weight: 700;
@@ -3283,6 +3353,7 @@ img.avatar {
     border: 1px solid rgba(239, 255, 25, 0.2);
     cursor: pointer;
     transition: background-color 0.2s;
+    text-align: center;
   }
 
   .mobile-user-points:hover {

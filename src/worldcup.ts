@@ -22,6 +22,11 @@ export type ApiGame = {
   espn_event_id?: string;
   espn_home_red_cards?: number;
   espn_away_red_cards?: number;
+  home_score_final?: string;
+  away_score_final?: string;
+  shootout_home_score?: string;
+  shootout_away_score?: string;
+  finished_type?: "aet" | "pen";
 };
 
 export type ApiTeam = {

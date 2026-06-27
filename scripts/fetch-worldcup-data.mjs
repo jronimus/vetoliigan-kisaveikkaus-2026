@@ -253,8 +253,18 @@ function addExpectedGoalsFromLeaders(summary, sides) {
   }
 }
 
+function getRegulationScoreFromLinescores(linescores) {
+  if (!Array.isArray(linescores) || linescores.length < 2) return undefined;
+  const p1 = Number(linescores[0]?.value ?? linescores[0]?.displayValue ?? 0);
+  const p2 = Number(linescores[1]?.value ?? linescores[1]?.displayValue ?? 0);
+  return p1 + p2;
+}
+
 function mapSummary(eventId, summary) {
   const competition = summary.header?.competitions?.[0];
+  const competitors = competition?.competitors ?? [];
+  const home = competitors.find((c) => c.homeAway === "home");
+  const away = competitors.find((c) => c.homeAway === "away");
   return {
     eventId,
     status: {
@@ -273,6 +283,8 @@ function mapSummary(eventId, summary) {
     stats: mapStats(summary),
     rosters: {},
     odds: [],
+    homeLinescores: home?.linescores,
+    awayLinescores: away?.linescores,
   };
 }
 
@@ -321,7 +333,25 @@ summaryResults.forEach((result) => {
   }
 });
 
-await writeFile(join(outDir, "games.json"), JSON.stringify({ games: enrichedGames }));
+const finalGames = enrichedGames.map((game) => {
+  if (game.type === "group" || !game.espn_event_id) return game;
+  const summary = summaryMap[game.espn_event_id];
+  if (!summary) return game;
+
+  const homeRegScore = getRegulationScoreFromLinescores(summary.homeLinescores);
+  const awayRegScore = getRegulationScoreFromLinescores(summary.awayLinescores);
+
+  if (homeRegScore !== undefined && awayRegScore !== undefined) {
+    return {
+      ...game,
+      home_score: String(homeRegScore),
+      away_score: String(awayRegScore),
+    };
+  }
+  return game;
+});
+
+await writeFile(join(outDir, "games.json"), JSON.stringify({ games: finalGames }));
 await writeFile(join(outDir, "teams.json"), JSON.stringify(teamsJson));
 await writeFile(join(outDir, "groups.json"), JSON.stringify(groupsJson));
 await writeFile(join(outDir, "stadiums.json"), JSON.stringify(stadiumsJson));

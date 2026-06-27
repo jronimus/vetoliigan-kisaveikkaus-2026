@@ -1,4 +1,4 @@
-import { currentFinlandClockMillis, finlandClockDate, normalizeTeamName, type ApiGame } from "./worldcup";
+import { currentFinlandClockMillis, finlandClockDate, normalizeTeamName, type ApiGame, isFinished, isLive } from "./worldcup";
 
 const ESPN_SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard";
 const ESPN_SUMMARY = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary";
@@ -35,6 +35,7 @@ type EspnCompetitor = {
     shortDisplayName?: string;
     name?: string;
   };
+  linescores?: EspnPeriodScore[];
 };
 
 type EspnLeaderStat = {
@@ -198,6 +199,11 @@ export type EspnOdds = {
   drawMoneyline?: string;
 };
 
+export type EspnPeriodScore = {
+  value?: number;
+  displayValue?: string;
+};
+
 export type EspnMatchSummary = {
   eventId: string;
   status?: {
@@ -216,6 +222,8 @@ export type EspnMatchSummary = {
   stats: EspnTeamStats;
   rosters: { home?: EspnRosterSide; away?: EspnRosterSide };
   odds: EspnOdds[];
+  homeLinescores?: EspnPeriodScore[];
+  awayLinescores?: EspnPeriodScore[];
 };
 
 const TEAM_ALIASES: Record<string, string> = {
@@ -358,6 +366,32 @@ async function fetchScoreboard(date: string) {
   return (await response.json()) as EspnScoreboard;
 }
 
+function parseLinescores(linescores?: EspnPeriodScore[]): {
+  regulation: number;
+  final: number;
+  shootout?: number;
+} | undefined {
+  if (!Array.isArray(linescores) || linescores.length < 2) return undefined;
+  const p1 = Number(linescores[0]?.value ?? linescores[0]?.displayValue ?? 0);
+  const p2 = Number(linescores[1]?.value ?? linescores[1]?.displayValue ?? 0);
+  const regulation = p1 + p2;
+  
+  if (linescores.length === 2) {
+    return { regulation, final: regulation };
+  }
+  
+  const p3 = Number(linescores[2]?.value ?? linescores[2]?.displayValue ?? 0);
+  const p4 = Number(linescores[3]?.value ?? linescores[3]?.displayValue ?? 0);
+  const final = regulation + p3 + p4;
+  
+  if (linescores.length === 5) {
+    const shootout = Number(linescores[4]?.value ?? linescores[4]?.displayValue ?? 0);
+    return { regulation, final, shootout };
+  }
+  
+  return { regulation, final };
+}
+
 export async function enrichGamesWithEspn(games: ApiGame[]): Promise<ApiGame[]> {
   const now = currentFinlandClockMillis();
   const dates = new Set<string>();
@@ -368,10 +402,71 @@ export async function enrichGamesWithEspn(games: ApiGame[]): Promise<ApiGame[]> 
   const scoreboards = await Promise.all([...dates].map(fetchScoreboard));
   const events = scoreboards.flatMap((board) => board.events ?? []);
 
-  return games.map((game) => {
+  const baseEnriched = games.map((game) => {
     const event = findEspnEvent(game, events);
     return event ? applyEspnEvent(game, event) : game;
   });
+
+  const knockoutActiveOrFinished = baseEnriched.filter(
+    (game) =>
+      game.type !== "group" &&
+      game.espn_event_id &&
+      (isFinished(game) || isLive(game))
+  );
+
+  if (knockoutActiveOrFinished.length > 0) {
+    try {
+      const summaries = await Promise.allSettled(
+        knockoutActiveOrFinished.map((game) => fetchEspnMatchSummary(game.espn_event_id!))
+      );
+
+      const summaryMap = new Map<string, EspnMatchSummary>();
+      summaries.forEach((res) => {
+        if (res.status === "fulfilled") {
+          summaryMap.set(res.value.eventId, res.value);
+        }
+      });
+
+      return baseEnriched.map((game) => {
+        if (game.type === "group" || !game.espn_event_id) return game;
+        const summary = summaryMap.get(game.espn_event_id);
+        if (!summary) return game;
+
+        const homeParsed = parseLinescores(summary.homeLinescores);
+        const awayParsed = parseLinescores(summary.awayLinescores);
+
+        if (homeParsed && awayParsed) {
+          const gameUpdate: Partial<ApiGame> = {
+            home_score: String(homeParsed.regulation),
+            away_score: String(awayParsed.regulation),
+          };
+
+          if (summary.homeLinescores && summary.homeLinescores.length > 2) {
+            gameUpdate.home_score_final = String(homeParsed.final);
+            gameUpdate.away_score_final = String(awayParsed.final);
+
+            if (homeParsed.shootout !== undefined && awayParsed.shootout !== undefined) {
+              gameUpdate.shootout_home_score = String(homeParsed.shootout);
+              gameUpdate.shootout_away_score = String(awayParsed.shootout);
+              gameUpdate.finished_type = "pen";
+            } else {
+              gameUpdate.finished_type = "aet";
+            }
+          }
+
+          return {
+            ...game,
+            ...gameUpdate,
+          };
+        }
+        return game;
+      });
+    } catch (e) {
+      console.error("Failed to enrich regulation scores:", e);
+    }
+  }
+
+  return baseEnriched;
 }
 
 function athleteName(athlete?: EspnAthlete) {
@@ -598,6 +693,10 @@ export async function fetchEspnMatchSummary(eventId: string): Promise<EspnMatchS
       return !!(item.homeMoneyline || item.drawMoneyline || item.awayMoneyline);
     });
 
+  const competitors = competition?.competitors ?? [];
+  const homeCompetitor = competitors.find((c) => c.homeAway === "home");
+  const awayCompetitor = competitors.find((c) => c.homeAway === "away");
+
   return {
     eventId,
     status: {
@@ -619,5 +718,7 @@ export async function fetchEspnMatchSummary(eventId: string): Promise<EspnMatchS
       away: awayRoster ? mapRosterSide(awayRoster) : undefined,
     },
     odds,
+    homeLinescores: homeCompetitor?.linescores,
+    awayLinescores: awayCompetitor?.linescores,
   };
 }

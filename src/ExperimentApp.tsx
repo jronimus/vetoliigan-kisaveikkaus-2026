@@ -319,12 +319,24 @@ function stageLabel(game: ApiGame) {
   return game.type;
 }
 
+function knockoutStageFinnishName(type: string): string | null {
+  if (type === "r32") return "1. pudotuspelikierros";
+  if (type === "r16") return "Neljännesvälierä";
+  if (type === "qf") return "Puolivälierä";
+  if (type === "sf") return "Välierä";
+  if (type === "third") return "Pronssiottelu";
+  if (type === "final") return "Loppuottelu";
+  return null;
+}
+
 
 
 const WEEKDAYS_FI = ["Sunnuntai", "Maanantai", "Tiistai", "Keskiviikko", "Torstai", "Perjantai", "Lauantai"];
 
 function getKickoffStatus(game: ApiGame, now: number) {
-  if (isFinished(game)) return { text: "Päättynyt", type: "finished" };
+  if (isFinished(game)) {
+    return { text: "Päättynyt", type: "finished" };
+  }
   if (isLive(game)) {
     const elapsed = String(game.time_elapsed).trim();
     const normalizedElapsed = elapsed.toLowerCase();
@@ -352,6 +364,31 @@ function getKickoffStatus(game: ApiGame, now: number) {
   }
 
   return { text: "Tulossa", type: "upcoming" };
+}
+
+function isTeamEliminated(game: ApiGame, side: "home" | "away"): boolean {
+  if (game.type === "group" || !isFinished(game)) return false;
+
+  if (game.finished_type === "pen" && game.shootout_home_score && game.shootout_away_score) {
+    const hPen = Number(game.shootout_home_score);
+    const aPen = Number(game.shootout_away_score);
+    if (hPen > aPen) return side === "away";
+    if (aPen > hPen) return side === "home";
+  }
+
+  if (game.home_score_final !== undefined && game.away_score_final !== undefined) {
+    const hFinal = Number(game.home_score_final);
+    const aFinal = Number(game.away_score_final);
+    if (hFinal > aFinal) return side === "away";
+    if (aFinal > hFinal) return side === "home";
+  }
+
+  const hReg = Number(game.home_score);
+  const aReg = Number(game.away_score);
+  if (hReg > aReg) return side === "away";
+  if (aReg > hReg) return side === "home";
+
+  return false;
 }
 
 function dateLabel(game: ApiGame) {
@@ -673,7 +710,7 @@ function groupAdjacentGamesByDay(rowGames: ApiGame[]): ApiGame[][] {
   for (let i = 1; i < rowGames.length; i++) {
     const prevGame = rowGames[i - 1];
     const currGame = rowGames[i];
-    if (dateLabel(prevGame) === dateLabel(currGame)) {
+    if (dateLabel(prevGame) === dateLabel(currGame) && prevGame.type === currGame.type) {
       currentGroup.push(currGame);
     } else {
       groups.push(currentGroup);
@@ -1559,6 +1596,7 @@ function MatchCardColumn({
   currentPlayerName,
   setPlayers,
   onOpenDetails,
+  showSublabelSlot = false,
 }: {
   game: ApiGame;
   teams: ApiTeam[];
@@ -1566,17 +1604,21 @@ function MatchCardColumn({
   currentPlayerName?: PlayerName;
   setPlayers: (players: PlayerState[]) => void;
   onOpenDetails: (game: ApiGame) => void;
+  showSublabelSlot?: boolean;
 }) {
   const home = teamName(game, "home");
   const away = teamName(game, "away");
   const homeTeam = teamByName(teams, home);
   const awayTeam = teamByName(teams, away);
 
+  const homeDisplayScore = game.home_score_final !== undefined ? game.home_score_final : game.home_score;
+  const awayDisplayScore = game.away_score_final !== undefined ? game.away_score_final : game.away_score;
+
   const displayPlayers = [...players].sort((a, b) => a.name.localeCompare(b.name));
 
   const scheduled = finlandClockDate(game);
   const centerValue = isFinished(game) || isLive(game)
-    ? `${parseScore(game.home_score)} - ${parseScore(game.away_score)}`
+    ? `${parseScore(homeDisplayScore)} - ${parseScore(awayDisplayScore)}`
     : scheduled
       ? new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }).format(scheduled)
       : "--:--";
@@ -1667,15 +1709,15 @@ function MatchCardColumn({
                   </div>
                   {kickoffStatus.type === "live" ? (
                     <div className="score-capsule live">
-                      <span className="score-num">{parseScore(game.home_score)}</span>
+                      <span className="score-num">{parseScore(homeDisplayScore)}</span>
                       <span className="score-divider-line" />
-                      <span className="score-num">{parseScore(game.away_score)}</span>
+                      <span className="score-num">{parseScore(awayDisplayScore)}</span>
                     </div>
                   ) : kickoffStatus.type === "finished" ? (
                     <div className="score-capsule finished">
-                      <span className="score-num">{parseScore(game.home_score)}</span>
+                      <span className="score-num">{parseScore(homeDisplayScore)}</span>
                       <span className="score-divider-line" />
-                      <span className="score-num">{parseScore(game.away_score)}</span>
+                      <span className="score-num">{parseScore(awayDisplayScore)}</span>
                     </div>
                   ) : (
                     <div className="score-capsule upcoming">
@@ -1695,9 +1737,19 @@ function MatchCardColumn({
             </div>
           </button>
 
+          {showSublabelSlot && (
+            <div className="score-sublabel-slot">
+              {isFinished(game) && game.finished_type === "pen" && game.shootout_home_score && game.shootout_away_score
+                ? `Pen: ${game.shootout_home_score} – ${game.shootout_away_score}`
+                : isFinished(game) && game.finished_type === "aet"
+                  ? "Jatkoajan jälkeen"
+                  : ""}
+            </div>
+          )}
+
           <div className="team-names-row">
-            <div className="team-name home" lang="fi" aria-label={normalizeTeam(home)}>{hyphenatedTeamName(normalizeTeam(home))}</div>
-            <div className="team-name away" lang="fi" aria-label={normalizeTeam(away)}>{hyphenatedTeamName(normalizeTeam(away))}</div>
+            <div className={clsx("team-name home", isTeamEliminated(game, "home") && "eliminated")} lang="fi" aria-label={normalizeTeam(home)}>{hyphenatedTeamName(normalizeTeam(home))}</div>
+            <div className={clsx("team-name away", isTeamEliminated(game, "away") && "eliminated")} lang="fi" aria-label={normalizeTeam(away)}>{hyphenatedTeamName(normalizeTeam(away))}</div>
           </div>
         </div>
 
@@ -1709,6 +1761,17 @@ function MatchCardColumn({
             </div>
           ))}
         </div>
+
+        <div className="match-card-spacer" />
+
+        {game.type !== "group" && (
+          <div className="regulation-score-label">
+            Tulos 90 min jälkeen
+            {game.home_score_final !== undefined && (
+              <>: <span style={{ color: "var(--accent-yellow)", fontWeight: "bold" }}>{game.home_score} - {game.away_score}</span></>
+            )}
+          </div>
+        )}
 
         <div className="prediction-list">
           {displayPlayers.map((player) => {
@@ -1753,10 +1816,14 @@ function MatchCardColumn({
                 </div>
                 <div className="pred-points-wrap">
                   {!isOpen ? (
-                    prediction ? (
-                      <span className="points">{matchPoints(prediction, game)} p</span>
+                    isFinished(game) ? (
+                      prediction ? (
+                        <span className="points">{matchPoints(prediction, game)} p</span>
+                      ) : (
+                        <span className="points">0 p</span>
+                      )
                     ) : (
-                      <span className="points">0 p</span>
+                      <span className="points-placeholder" />
                     )
                   ) : (
                     isSelf && hasPredicted ? (
@@ -1782,6 +1849,7 @@ function MatchGroupCard({
   currentPlayerName,
   setPlayers,
   onOpenDetails,
+  showSublabelSlot = false,
 }: {
   games: ApiGame[];
   teams: ApiTeam[];
@@ -1789,6 +1857,7 @@ function MatchGroupCard({
   currentPlayerName?: PlayerName;
   setPlayers: (players: PlayerState[]) => void;
   onOpenDetails: (game: ApiGame) => void;
+  showSublabelSlot?: boolean;
 }) {
   const b = useMemo(() => generateCardBackdropStyle(games[0].id), [games[0]?.id]);
   const borderMaskId = `match-border-mask-${games[0].id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
@@ -1835,6 +1904,7 @@ function MatchGroupCard({
                 currentPlayerName={currentPlayerName}
                 setPlayers={setPlayers}
                 onOpenDetails={onOpenDetails}
+                showSublabelSlot={showSublabelSlot}
               />
             </div>
           ))}
@@ -1869,10 +1939,10 @@ function MatchSections({
   const recentGames = chronologicalGames(visibleGames.filter((game) => !archivedMatch(game)));
   const olderGames = chronologicalGames(visibleGames.filter((game) => archivedMatch(game)));
 
-  // Group recent games by date label
+  // Group recent games by date label and type
   const recentGroupedByDate = new Map<string, ApiGame[]>();
   recentGames.forEach((game) => {
-    const key = dateLabel(game);
+    const key = `${dateLabel(game)}|${game.type}`;
     recentGroupedByDate.set(key, [...(recentGroupedByDate.get(key) ?? []), game]);
   });
 
@@ -1880,10 +1950,10 @@ function MatchSections({
   const visibleRecentDays = allRecentDays.slice(0, visibleDaysCount);
   const hasMoreRecentDays = allRecentDays.length > visibleDaysCount;
 
-  // Group older games by date label
+  // Group older games by date label and type
   const olderGroupedByDate = new Map<string, ApiGame[]>();
   olderGames.forEach((game) => {
-    const key = dateLabel(game);
+    const key = `${dateLabel(game)}|${game.type}`;
     olderGroupedByDate.set(key, [...(olderGroupedByDate.get(key) ?? []), game]);
   });
   const allOlderDays = [...olderGroupedByDate.entries()];
@@ -1935,16 +2005,21 @@ function MatchSections({
       // Group games by day globally on mobile
       const daysMap = new Map<string, ApiGame[]>();
       flatGames.forEach((game) => {
-        const dayLabel = dateLabel(game);
-        if (!daysMap.has(dayLabel)) {
-          daysMap.set(dayLabel, []);
+        const key = `${dateLabel(game)}|${game.type}`;
+        if (!daysMap.has(key)) {
+          daysMap.set(key, []);
         }
-        daysMap.get(dayLabel)!.push(game);
+        daysMap.get(key)!.push(game);
       });
 
       return (
         <div className="match-rows-list">
-          {[...daysMap.entries()].map(([dayLabel, dayGames], idx) => {
+          {[...daysMap.entries()].map(([key, dayGames], idx) => {
+            const [dayDate, gameType] = key.split("|");
+            const stageName = gameType ? knockoutStageFinnishName(gameType) : null;
+            const groupHasSublabel = dayGames.some(g =>
+              g.type !== "group" && isFinished(g) && (g.finished_type === "aet" || g.finished_type === "pen")
+            );
             return (
               <div className="match-row-flow" key={idx}>
                 <div
@@ -1955,7 +2030,10 @@ function MatchSections({
                   }}
                 >
                   <div className="match-day-header">
-                    {dayLabel}
+                    {dayDate}
+                  </div>
+                  <div className={clsx("match-stage-subheader", !stageName && "empty")}>
+                    {stageName || "\u00A0"}
                   </div>
                   <MatchGroupCard
                     games={dayGames}
@@ -1964,6 +2042,7 @@ function MatchSections({
                     currentPlayerName={currentPlayerName}
                     setPlayers={setPlayers}
                     onOpenDetails={openDetails}
+                    showSublabelSlot={groupHasSublabel}
                   />
                 </div>
               </div>
@@ -1983,10 +2062,21 @@ function MatchSections({
           // Group adjacent games of the same day inside this row
           const groups = groupAdjacentGamesByDay(rowGames);
 
+          const hasGroup = rowGames.some((g) => g.type === "group");
+          const hasKnockout = rowGames.some((g) => g.type !== "group");
+          const isMixed = hasGroup && hasKnockout;
+
+          // If any game in the row has an AET/pen result, all cards in the row reserve the sublabel slot
+          const rowHasSublabel = rowGames.some(g =>
+            g.type !== "group" && isFinished(g) && (g.finished_type === "aet" || g.finished_type === "pen")
+          );
+
           return (
-            <div className="match-row-flow" key={rowIdx}>
+            <div className={clsx("match-row-flow", isMixed && "mixed-row")} key={rowIdx}>
               {groups.map((chunk: ApiGame[], chunkIdx: number) => {
                 const dayLabel = dateLabel(chunk[0]);
+                const firstGame = chunk[0];
+                const stageName = firstGame ? knockoutStageFinnishName(firstGame.type) : null;
 
                 return (
                   <div
@@ -2001,6 +2091,9 @@ function MatchSections({
                     <div className="match-day-header">
                       {dayLabel}
                     </div>
+                    <div className={clsx("match-stage-subheader", !stageName && "empty")}>
+                      {stageName || "\u00A0"}
+                    </div>
                     <MatchGroupCard
                       games={chunk}
                       teams={teams}
@@ -2008,6 +2101,7 @@ function MatchSections({
                       currentPlayerName={currentPlayerName}
                       setPlayers={setPlayers}
                       onOpenDetails={openDetails}
+                      showSublabelSlot={rowHasSublabel}
                     />
                   </div>
                 );
@@ -2543,6 +2637,8 @@ export default function App() {
       } catch (err) {
         console.warn("ESPN enrichment failed, using primary World Cup data:", err);
       }
+
+
       setGames(gamesWithEspn);
       setTeams(data.teams);
       setStadiums(data.stadiums);
