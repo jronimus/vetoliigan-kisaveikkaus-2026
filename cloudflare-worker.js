@@ -304,6 +304,79 @@ async function fetchWorldCupEndpoint(endpoint) {
   return data[endpoint] || [];
 }
 
+async function fetchStaticGames() {
+  try {
+    const response = await fetch(`${APP_URL}live-data/games.json`, {
+      headers: { accept: "application/json" },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return data.games || [];
+    }
+  } catch (err) {
+    console.error("Failed to fetch static games:", err);
+  }
+  return [];
+}
+
+async function fetchGamesEnriched() {
+  const [rawGames, staticGames] = await Promise.all([
+    fetchWorldCupEndpoint("games").catch(() => []),
+    fetchStaticGames(),
+  ]);
+
+  const gamesToUse = rawGames.length ? rawGames : staticGames;
+
+  // Merge espn_event_id from staticGames to rawGames
+  const staticMap = new Map(staticGames.map((g) => [g.id, g]));
+  return gamesToUse.map((g) => {
+    const staticGame = staticMap.get(g.id);
+    return {
+      ...g,
+      espn_event_id: g.espn_event_id || staticGame?.espn_event_id,
+    };
+  });
+}
+
+async function fetchEspnOdds(eventId) {
+  if (!eventId) return null;
+  try {
+    const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=${encodeURIComponent(eventId)}`;
+    const response = await fetch(url, { headers: { accept: "application/json" } });
+    if (!response.ok) return null;
+    const summary = await response.json();
+    
+    // Parse odds
+    const pickcenter = summary.pickcenter || [];
+    const odds = summary.odds || [];
+    const allOdds = [...pickcenter, ...odds];
+    if (!allOdds.length) return null;
+    
+    const item = allOdds[0];
+    const homeVal = item.homeTeamOdds?.moneyLine;
+    const awayVal = item.awayTeamOdds?.moneyLine;
+    const drawVal = item.drawOdds?.moneyLine;
+    
+    // Convert to decimal odds
+    const toDecimal = (val) => {
+      if (typeof val !== "number" || !Number.isFinite(val) || val === 0) return undefined;
+      const dec = val > 0 ? val / 100 + 1 : 100 / Math.abs(val) + 1;
+      return dec.toFixed(2);
+    };
+    
+    const home = toDecimal(homeVal);
+    const away = toDecimal(awayVal);
+    const draw = toDecimal(drawVal);
+    
+    if (home || draw || away) {
+      return { home, draw, away };
+    }
+  } catch (err) {
+    console.error(`Failed to fetch ESPN odds for event ${eventId}:`, err);
+  }
+  return null;
+}
+
 function isFinished(game) {
   return String(game.finished).toLowerCase() === "true" || String(game.time_elapsed).toLowerCase() === "finished";
 }
@@ -822,7 +895,7 @@ function shouldSendNightReminder(games, now = new Date()) {
   return Math.abs(now.getTime() - target) <= REMINDER_WINDOW_MINUTES * 60000;
 }
 
-function predictionPrompt(games, player) {
+async function predictionPrompt(games, player) {
   const predictionIds = (Array.isArray(player.predictions) ? player.predictions : [])
     .map(predictionGameId)
     .filter((id) => id !== undefined && id !== null)
@@ -838,6 +911,9 @@ function predictionPrompt(games, player) {
     ].join("\n");
   }
 
+  // Fetch odds for all games in parallel
+  const oddsList = await Promise.all(games.map(g => fetchEspnOdds(g.espn_event_id)));
+
   const lines = [
     "🎯 Yön veikkaukset",
     `Veikkaaja: ${player.name}`,
@@ -852,11 +928,16 @@ function predictionPrompt(games, player) {
 
   games.forEach((game, index) => {
     const existing = predictionForGame(player, game);
+    const odds = oddsList[index];
     lines.push("");
     lines.push(
       `${index + 1}. ${formatTime(gameTimestamp(game))} ${teamEmoji(game, "home")} ${teamName(game, "home")} – ${teamEmoji(game, "away")} ${teamName(game, "away")}`,
     );
-    lines.push(`   Nykyinen: ${predictionIsComplete(existing) ? predictionText(existing) : "ei vielä veikkausta"}`);
+    let betLine = `   Nykyinen: ${predictionIsComplete(existing) ? predictionText(existing) : "ei vielä veikkausta"}`;
+    if (odds) {
+      betLine += `\n   Kertoimet: 1: ${odds.home || "-"}  X: ${odds.draw || "-"}  2: ${odds.away || "-"}`;
+    }
+    lines.push(betLine);
   });
 
   lines.push("");
@@ -916,7 +997,7 @@ function predictionConfirmation(saved) {
 }
 
 async function handleBetCommand(message, env) {
-  const [games, players] = await Promise.all([fetchWorldCupEndpoint("games"), readPlayers(env)]);
+  const [games, players] = await Promise.all([fetchGamesEnriched(), readPlayers(env)]);
   const chatId = message.chat.id;
   const from = message.from || {};
   const playerName = playerNameForTelegramUser(from, env, players);
@@ -929,7 +1010,7 @@ async function handleBetCommand(message, env) {
   }
 
   const availableGames = predictionNightGames(games, new Date());
-  const prompt = predictionPrompt(availableGames, player);
+  const prompt = await predictionPrompt(availableGames, player);
 
   if (message.chat.type === "private") {
     await sendTelegramMessage(env, chatId, prompt);
@@ -951,7 +1032,7 @@ async function handleBetCommand(message, env) {
 async function handlePrivatePredictionMessage(message, env) {
   if (message.chat.type !== "private") return;
 
-  const [games, players] = await Promise.all([fetchWorldCupEndpoint("games"), readPlayers(env)]);
+  const [games, players] = await Promise.all([fetchGamesEnriched(), readPlayers(env)]);
   const playerName = playerNameForTelegramUser(message.from || {}, env, players);
   const player = players.find((item) => item.name === playerName);
 
@@ -964,7 +1045,7 @@ async function handlePrivatePredictionMessage(message, env) {
   const parsed = parsePredictionLines(message.text, availableGames.length);
 
   if (!parsed.length) {
-    await sendTelegramMessage(env, message.chat.id, predictionPrompt(availableGames, player));
+    await sendTelegramMessage(env, message.chat.id, await predictionPrompt(availableGames, player));
     return;
   }
 
@@ -989,7 +1070,7 @@ async function handlePrivatePredictionMessage(message, env) {
 }
 
 async function commandMessage(command, env) {
-  const games = await fetchWorldCupEndpoint("games");
+  const games = await fetchGamesEnriched();
 
   if (command === "/vetotaulukko") {
     const players = await readPlayers(env);
@@ -1022,7 +1103,7 @@ async function sendTelegramMessage(env, chatId, text) {
 }
 
 async function sendNightReminder(env, now = new Date()) {
-  const [games, players] = await Promise.all([fetchWorldCupEndpoint("games"), readPlayers(env)]);
+  const [games, players] = await Promise.all([fetchGamesEnriched(), readPlayers(env)]);
   const window = roundWindow(now);
   const roundGames = nightGames(games, now);
   const upcomingGames = roundGames.filter((game) => gameTimestamp(game) > now && !isFinished(game));
@@ -1050,7 +1131,7 @@ function shouldSendNightSummary(games, now = new Date()) {
 }
 
 async function sendNightSummary(env, now = new Date()) {
-  const [games, players] = await Promise.all([fetchWorldCupEndpoint("games"), readPlayers(env)]);
+  const [games, players] = await Promise.all([fetchGamesEnriched(), readPlayers(env)]);
   const { games: completedGames, window } = completedNightGamesForSummary(games, now);
   const stateKey = `summary-${window.id}`;
 
@@ -1169,7 +1250,7 @@ export default {
           return textResponse("Unauthorized", { status: 401 });
         }
         const dryRun = url.searchParams.get("dryRun") !== "0";
-        const [games, players] = await Promise.all([fetchWorldCupEndpoint("games"), readPlayers(env)]);
+        const [games, players] = await Promise.all([fetchGamesEnriched(), readPlayers(env)]);
         const now = new Date(url.searchParams.get("now") || Date.now());
         const upcomingGames = futureNightGames(games, now);
         const message = upcomingGames.length
@@ -1188,7 +1269,7 @@ export default {
         }
         const dryRun = url.searchParams.get("dryRun") !== "0";
         const now = new Date(url.searchParams.get("now") || Date.now());
-        const [games, players] = await Promise.all([fetchWorldCupEndpoint("games"), readPlayers(env)]);
+        const [games, players] = await Promise.all([fetchGamesEnriched(), readPlayers(env)]);
         const { games: completedGames, window } = completedNightGamesForSummary(games, now);
         const message = completedGames.length
           ? nightSummaryMessage(completedGames, players, games)
