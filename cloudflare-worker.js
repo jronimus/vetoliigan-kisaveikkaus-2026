@@ -306,7 +306,7 @@ async function fetchWorldCupEndpoint(endpoint) {
 
 async function fetchStaticGames() {
   try {
-    const response = await fetch(`${APP_URL}live-data/games.json`, {
+    const response = await fetch(`${APP_URL}live-data/games.json?t=${Date.now()}`, {
       headers: { accept: "application/json" },
     });
     if (response.ok) {
@@ -342,7 +342,10 @@ async function fetchEspnOdds(eventId) {
   if (!eventId) return null;
   try {
     const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=${encodeURIComponent(eventId)}`;
-    const response = await fetch(url, { headers: { accept: "application/json" } });
+    const response = await fetch(url, {
+      headers: { accept: "application/json" },
+      cache: "no-store",
+    });
     if (!response.ok) return null;
     const summary = await response.json();
     
