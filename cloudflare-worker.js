@@ -363,12 +363,63 @@ function standingsMessage(table) {
   return ["🏆 VETOLIIGAN PISTETAULUKKO", "", ...rows, "", `👉 ${APP_URL}`].join("\n");
 }
 
+const TEAM_FI = {
+  Algeria: "Algeria",
+  Argentina: "Argentiina",
+  Australia: "Australia",
+  Austria: "Itävalta",
+  Belgium: "Belgia",
+  "Bosnia and Herzegovina": "Bosnia ja Hertsegovina",
+  Brazil: "Brasilia",
+  Canada: "Kanada",
+  Chile: "Chile",
+  Colombia: "Kolumbia",
+  Croatia: "Kroatia",
+  Curacao: "Curacao",
+  "Curaçao": "Curacao",
+  "Czech Republic": "Tsekki",
+  "Democratic Republic of the Congo": "DR Kongo",
+  Ecuador: "Ecuador",
+  Egypt: "Egypti",
+  England: "Englanti",
+  France: "Ranska",
+  Germany: "Saksa",
+  Ghana: "Ghana",
+  Haiti: "Haiti",
+  Iran: "Iran",
+  Iraq: "Irak",
+  "Ivory Coast": "Norsunluurannikko",
+  Japan: "Japani",
+  Jordan: "Jordania",
+  Mexico: "Meksiko",
+  Morocco: "Marokko",
+  Netherlands: "Hollanti",
+  "New Zealand": "Uusi-Seelanti",
+  Norway: "Norja",
+  Panama: "Panama",
+  Paraguay: "Paraguay",
+  Portugal: "Portugali",
+  Qatar: "Qatar",
+  "Saudi Arabia": "Saudi-Arabia",
+  Scotland: "Skotlanti",
+  Senegal: "Senegal",
+  "South Africa": "Etelä-Afrikka",
+  "South Korea": "Etelä-Korea",
+  Spain: "Espanja",
+  Sweden: "Ruotsi",
+  Switzerland: "Sveitsi",
+  Tunisia: "Tunisia",
+  Turkey: "Turkki",
+  "United States": "Yhdysvallat",
+  Uruguay: "Uruguay",
+  Uzbekistan: "Uzbekistan",
+};
+
 function teamName(game, side) {
   const key = side === "home" ? "home_team_name_en" : "away_team_name_en";
   const labelKey = side === "home" ? "home_team_label" : "away_team_label";
   const value = game[key] || game[labelKey] || (side === "home" ? "Kotijoukkue" : "Vierasjoukkue");
-  if (value === "Democratic Republic of the Congo") return "DR Kongo";
-  return value;
+  return TEAM_FI[value] || value;
 }
 
 const TEAM_EMOJIS = {
@@ -389,7 +440,7 @@ const TEAM_EMOJIS = {
   "DR Kongo": "🇨🇩",
   Ecuador: "🇪🇨",
   Egypt: "🇪🇬",
-  England: "🏴",
+  England: "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
   France: "🇫🇷",
   Germany: "🇩🇪",
   Ghana: "🇬🇭",
