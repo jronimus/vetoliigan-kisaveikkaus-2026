@@ -37,6 +37,7 @@ const MTV_FIFA_PAGE_ID = "fifa-2026";
 const MTV_COMPILATIONS_PANEL_TITLE = "MM-futiksen ottelukoosteet";
 const MTV_COMPILATIONS_FALLBACK_PANEL_ID = "745Quf6Do0d45DYfQ9mBmf";
 const MTV_CLIENT_VERSION = "5.5.0";
+const MTV_COMPILATIONS_READER_URL = `https://r.jina.ai/http://r.jina.ai/http://https://www.mtv.fi/lista/${MTV_COMPILATIONS_FALLBACK_PANEL_ID}`;
 const CACHE_SECONDS = {
   games: 20,
   groups: 60,
@@ -913,51 +914,93 @@ function mtvClipUrl(clip) {
 }
 
 async function fetchMtvMediaItems() {
-  const panelId = await fetchMtvCompilationPanelId();
-  const query = `
-    query Panel($panelId: ID!, $input: ClipsPanelContentInput!) {
-      panel(id: $panelId) {
-        __typename
-        ... on ClipsPanel {
-          content(input: $input) {
-            pageInfo { hasNextPage nextPageOffset }
-            cards {
-              content {
-                __typename
-                ... on Clip { id title slug }
+  try {
+    const panelId = await fetchMtvCompilationPanelId();
+    const query = `
+      query Panel($panelId: ID!, $input: ClipsPanelContentInput!) {
+        panel(id: $panelId) {
+          __typename
+          ... on ClipsPanel {
+            content(input: $input) {
+              pageInfo { hasNextPage nextPageOffset }
+              cards {
+                content {
+                  __typename
+                  ... on Clip { id title slug }
+                }
               }
             }
           }
         }
       }
+    `;
+
+    const items = [];
+    let offset = 0;
+    let hasNextPage = true;
+
+    while (hasNextPage && offset < 120) {
+      const data = await mtvGraphql(query, { panelId, input: { offset, limit: 30 } });
+      const content = data?.panel?.content;
+      const cards = Array.isArray(content?.cards) ? content.cards : [];
+
+      items.push(
+        ...cards
+          .map((card) => card?.content)
+          .map((clip) => ({
+            title: clip?.title,
+            url: mtvClipUrl(clip),
+            type: mediaItemType(clip?.title),
+            key: mediaItemKey(clip?.title),
+            source: "MTV",
+          }))
+          .filter((item) => item.url && item.type),
+      );
+
+      hasNextPage = Boolean(content?.pageInfo?.hasNextPage);
+      offset = Number(content?.pageInfo?.nextPageOffset);
+      if (!Number.isFinite(offset)) break;
     }
-  `;
 
+    return items;
+  } catch {
+    return fetchMtvMediaItemsFromReader();
+  }
+}
+
+async function fetchMtvMediaItemsFromReader() {
+  const response = await fetch(MTV_COMPILATIONS_READER_URL, {
+    headers: {
+      accept: "text/plain",
+      "user-agent": "Mozilla/5.0",
+    },
+    cf: { cacheTtl: 180, cacheEverything: true },
+  });
+
+  if (!response.ok) {
+    throw new Error(`MTV reader failed: ${response.status}`);
+  }
+
+  const markdown = await response.text();
   const items = [];
-  let offset = 0;
-  let hasNextPage = true;
 
-  while (hasNextPage && offset < 120) {
-    const data = await mtvGraphql(query, { panelId, input: { offset, limit: 30 } });
-    const content = data?.panel?.content;
-    const cards = Array.isArray(content?.cards) ? content.cards : [];
-
-    items.push(
-      ...cards
-        .map((card) => card?.content)
-        .map((clip) => ({
-          title: clip?.title,
-          url: mtvClipUrl(clip),
-          type: mediaItemType(clip?.title),
-          key: mediaItemKey(clip?.title),
-          source: "MTV",
-        }))
-        .filter((item) => item.url && item.type),
-    );
-
-    hasNextPage = Boolean(content?.pageInfo?.hasNextPage);
-    offset = Number(content?.pageInfo?.nextPageOffset);
-    if (!Number.isFinite(offset)) break;
+  for (const line of markdown.split("\n")) {
+    if (!line.includes("https://www.mtv.fi/lyhyet/")) continue;
+    const url = line.match(/\]\((https:\/\/www\.mtv\.fi\/lyhyet\/[^)]+)\)/)?.[1];
+    const title = line
+      .replace(/^\[!\[[^\]]*]\([^)]+\)\s*/, "")
+      .replace(/\]\(https:\/\/www\.mtv\.fi\/lyhyet\/[^)]+\).*$/, "")
+      .replace(/\s+\d+\s*(?:h|min|s)\b.*$/, "")
+      .trim();
+    const type = mediaItemType(title);
+    if (!url || !type) continue;
+    items.push({
+      title,
+      url,
+      type,
+      key: mediaItemKey(title),
+      source: "MTV",
+    });
   }
 
   return items;
