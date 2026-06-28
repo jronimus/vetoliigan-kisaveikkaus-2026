@@ -37,7 +37,7 @@ const MTV_FIFA_PAGE_ID = "fifa-2026";
 const MTV_COMPILATIONS_PANEL_TITLE = "MM-futiksen ottelukoosteet";
 const MTV_COMPILATIONS_FALLBACK_PANEL_ID = "745Quf6Do0d45DYfQ9mBmf";
 const MTV_CLIENT_VERSION = "5.5.0";
-const MTV_COMPILATIONS_READER_URL = `https://r.jina.ai/http://r.jina.ai/http://https://www.mtv.fi/lista/${MTV_COMPILATIONS_FALLBACK_PANEL_ID}`;
+const MTV_COMPILATIONS_READER_URL = `https://r.jina.ai/http://https://www.mtv.fi/lista/${MTV_COMPILATIONS_FALLBACK_PANEL_ID}`;
 const CACHE_SECONDS = {
   games: 20,
   groups: 60,
