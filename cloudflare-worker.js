@@ -872,7 +872,6 @@ async function mtvGraphql(query, variables) {
       "feature-toggle-include-multi-single-panel": "true",
     },
     body: JSON.stringify({ query, variables }),
-    cf: { cacheTtl: 180, cacheEverything: true },
   });
 
   if (!response.ok) {
@@ -994,7 +993,7 @@ function mediaLink(label, item) {
 function mediaLinkRow(source, links) {
   const available = links.filter(([, item]) => item);
   if (!available.length) return "";
-  return `${source} | ${available.map(([label, item]) => mediaLink(label, item)).join(" ")}`;
+  return `${source} ${available.map(([label, item]) => mediaLink(label, item)).join(" | ")}`;
 }
 
 function koosteetMessage(games, mediaItems) {
