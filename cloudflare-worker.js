@@ -774,8 +774,16 @@ function areenaItemUrl(item) {
   return itemId ? `https://areena.yle.fi/${itemId}` : undefined;
 }
 
-function mediaItemType(title) {
-  const normalized = normalizeHighlightText(title);
+function mediaItemText(title, description) {
+  const normalizedTitle = normalizeHighlightText(title);
+  if (normalizedTitle === "fifa jalkapallon mm 2026" && description) {
+    return description;
+  }
+  return title;
+}
+
+function mediaItemType(title, description) {
+  const normalized = normalizeHighlightText(mediaItemText(title, description));
   if (normalized.startsWith("huippuhetket:")) return "yleHighlights";
   if (normalized.startsWith("kooste:")) return "yleRecap";
   if (normalized.endsWith(" kooste") && !normalized.includes("paivan otteluista")) return "yleRecap";
@@ -784,8 +792,8 @@ function mediaItemType(title) {
   return undefined;
 }
 
-function mediaItemKey(title) {
-  return normalizeHighlightText(title)
+function mediaItemKey(title, description) {
+  return normalizeHighlightText(mediaItemText(title, description))
     .replace(/^fifa jalkapallon mm 2026\s+/, "")
     .replace(/^(huippuhetket|kooste|ottelukooste|maalikooste):\s*/, "")
     .replace(/\s+kooste$/, "");
@@ -832,8 +840,8 @@ async function fetchYleMediaItems() {
             title: item.title,
             description: item.description,
             url: areenaItemUrl(item),
-            type: mediaItemType(item?.title),
-            key: mediaItemKey(item?.title),
+            type: mediaItemType(item?.title, item?.description),
+            key: mediaItemKey(item?.title, item?.description),
             source: "YLE",
           }))
           .filter((item) => item.url && item.type),
@@ -983,6 +991,12 @@ function mediaLink(label, item) {
   return `<a href="${telegramHtml(item.url)}">${telegramHtml(label)}</a>`;
 }
 
+function mediaLinkRow(source, links) {
+  const available = links.filter(([, item]) => item);
+  if (!available.length) return "";
+  return `${source} | ${available.map(([label, item]) => mediaLink(label, item)).join(" ")}`;
+}
+
 function koosteetMessage(games, mediaItems) {
   if (!games.length) {
     return { text: ["🎬 Yön koosteet", "", "Tälle yölle ei löytynyt pelattuja otteluita.", "", `👉 ${APP_URL}`].join("\n") };
@@ -992,17 +1006,21 @@ function koosteetMessage(games, mediaItems) {
 
   games.forEach((game) => {
     const label = highlightGameLabel(game);
-    const links = [
-      ["Huippuhetket | YLE", findMediaForGame(game, mediaItems, "yleHighlights")],
-      ["Kooste | YLE", findMediaForGame(game, mediaItems, "yleRecap")],
-      ["Ottelukooste | MTV", findMediaForGame(game, mediaItems, "mtvMatchRecap")],
-      ["Maalikooste | MTV", findMediaForGame(game, mediaItems, "mtvGoalRecap")],
-    ].filter(([, item]) => item);
+    const rows = [
+      mediaLinkRow("YLE", [
+        ["Huippuhetket", findMediaForGame(game, mediaItems, "yleHighlights")],
+        ["Kooste", findMediaForGame(game, mediaItems, "yleRecap")],
+      ]),
+      mediaLinkRow("MTV", [
+        ["Ottelukooste", findMediaForGame(game, mediaItems, "mtvMatchRecap")],
+        ["Maalikooste", findMediaForGame(game, mediaItems, "mtvGoalRecap")],
+      ]),
+    ].filter(Boolean);
 
     lines.push("");
     lines.push(`⚽ ${telegramHtml(label)}`);
-    if (links.length) {
-      lines.push(links.map(([linkLabel, item]) => mediaLink(linkLabel, item)).join(" | "));
+    if (rows.length) {
+      lines.push(...rows);
     } else {
       lines.push("Tästä pelistä ei vielä ole koosteita saatavilla");
     }
