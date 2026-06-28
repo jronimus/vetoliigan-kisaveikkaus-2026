@@ -26,6 +26,10 @@ const STADIUM_TO_FINLAND_HOURS = {
   "16": 10,
 };
 const BOT_STATE_COLLECTION = "telegramBotState";
+const YLE_AREENA_APP_ID = "areena-web-items";
+const YLE_AREENA_APP_KEY = "wlTs5D9OjIdeS9krPzRQR4I1PYVzoazN";
+const YLE_HIGHLIGHTS_TOKEN =
+  "eyJhbGciOiJIUzI1NiJ9.eyJjYXJkT3B0aW9uc1RlbXBsYXRlIjoiZXZlbnQiLCJzb3VyY2UiOiJodHRwczovL3Byb2dyYW1zLmFwaS55bGUuZmkvdjMvc2NoZW1hL3YzL3B1YmxpY2F0aW9ucy9sYXRlc3Q_Y29uY2VwdD0xOC0yNTYxMDE6aXNSZWxhdGVkRXZlbnRPZjsxOC0zMTA0MDQ6aXNBcmVlbmFFZGl0b3JpYWxUYWdPZiZwcm9ncmFtX3R5cGU9dHZjbGlwJnB1YmxpY2F0aW9uX3R5cGU9b25kZW1hbmQiLCJhbmFseXRpY3MiOnsiY29udGV4dCI6eyJ5bGUiOnsic291cmNlX3JlZiI6InR2LnZpZXcuNTcteDc1ZUU4Um1QLmZpZmFfamFsa2FwYWxsb25fbW1fMjAyNi5sYWhldHlrc2V0Lmh1aXBwdWhldGtldCJ9fX19.jkyooTvhfGVnYUAYAHVNnIQm8GaS4OX4Lb5wgGtDU28";
 const CACHE_SECONDS = {
   games: 20,
   groups: 60,
@@ -498,6 +502,21 @@ function teamName(game, side) {
   return TEAM_FI[value] || value;
 }
 
+const YLE_TEAM_FI = {
+  "Democratic Republic of the Congo": "Kongon demokraattinen tasavalta",
+  Curacao: "Curaçao",
+  "Curaçao": "Curaçao",
+  "Czech Republic": "Tšekki",
+  "Ivory Coast": "Norsunluurannikko",
+};
+
+function yleTeamName(game, side) {
+  const key = side === "home" ? "home_team_name_en" : "away_team_name_en";
+  const labelKey = side === "home" ? "home_team_label" : "away_team_label";
+  const raw = game[key] || game[labelKey] || "";
+  return YLE_TEAM_FI[raw] || teamName(game, side);
+}
+
 const TEAM_EMOJIS = {
   Algeria: "🇩🇿",
   Argentina: "🇦🇷",
@@ -683,6 +702,144 @@ function completedNightGamesForSummary(games, now = new Date()) {
   if (previous.length && previous.every(isFinished)) return { games: previous, window: roundWindow(previousNow) };
 
   return { games: [], window: roundWindow(now) };
+}
+
+function highlightNightGames(games, now = new Date()) {
+  const currentFinished = nightGames(games, now).filter(isFinished);
+  if (currentFinished.length) return { games: currentFinished, window: roundWindow(now) };
+
+  const previousNow = addUtcDays(now, -1);
+  const previousFinished = nightGames(games, previousNow).filter(isFinished);
+  return { games: previousFinished, window: roundWindow(previousNow) };
+}
+
+function normalizeHighlightText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[–—−]/g, "-")
+    .replace(/\s*-\s*/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function highlightMatchKey(home, away) {
+  return normalizeHighlightText(`${home}-${away}`);
+}
+
+function highlightKeysForGame(game) {
+  const home = yleTeamName(game, "home");
+  const away = yleTeamName(game, "away");
+  return new Set([
+    highlightMatchKey(home, away),
+    highlightMatchKey(away, home),
+  ]);
+}
+
+function areenaItemUrl(item) {
+  const pointerUri = item?.pointer?.uri || "";
+  const itemId = pointerUri.match(/items\/([^/?#]+)/)?.[1] || item?.labels?.find((label) => label.type === "itemId")?.raw;
+  return itemId ? `https://areena.yle.fi/${itemId}` : undefined;
+}
+
+function areenaHighlightKey(item) {
+  const title = normalizeHighlightText(item?.title);
+  const withoutPrefix = title.replace(/^huippuhetket:\s*/, "");
+  return withoutPrefix;
+}
+
+async function fetchYleHighlightItems() {
+  const items = [];
+  let offset = 0;
+  let total = Infinity;
+
+  while (offset < total && offset < 100) {
+    const url = new URL("https://areena.api.yle.fi/v1/ui/content/list");
+    url.searchParams.set("client", "yle-areena-web");
+    url.searchParams.set("language", "fi");
+    url.searchParams.set("v", "10");
+    url.searchParams.set("crop", "30");
+    url.searchParams.set("token", YLE_HIGHLIGHTS_TOKEN);
+    url.searchParams.set("app_id", YLE_AREENA_APP_ID);
+    url.searchParams.set("app_key", YLE_AREENA_APP_KEY);
+    url.searchParams.set("offset", String(offset));
+    url.searchParams.set("limit", "25");
+
+    const response = await fetch(url, {
+      headers: {
+        accept: "application/json",
+        "user-agent": "Mozilla/5.0",
+      },
+      cf: { cacheTtl: 180, cacheEverything: true },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Yle Areena huippuhetket failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const batch = Array.isArray(data.data) ? data.data : [];
+    total = Number(data.meta?.count) || batch.length;
+    items.push(
+      ...batch
+        .filter((item) => normalizeHighlightText(item?.title).startsWith("huippuhetket:"))
+        .map((item) => ({
+          title: item.title,
+          description: item.description,
+          url: areenaItemUrl(item),
+          key: areenaHighlightKey(item),
+        }))
+        .filter((item) => item.url),
+    );
+
+    if (!batch.length) break;
+    offset += batch.length;
+  }
+
+  return items;
+}
+
+function findHighlightForGame(game, highlights) {
+  const keys = highlightKeysForGame(game);
+  return highlights.find((item) => keys.has(item.key));
+}
+
+function telegramHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function highlightGameLabel(game) {
+  const score = `${parseScore(game.home_score)}-${parseScore(game.away_score)}`;
+  return `${teamEmoji(game, "home")} ${teamName(game, "home")} ${score} ${teamName(game, "away")} ${teamEmoji(game, "away")}`;
+}
+
+function huippuhetketMessage(games, highlights) {
+  if (!games.length) {
+    return { text: ["🎬 Yön huippuhetket", "", "Tälle yölle ei löytynyt pelattuja otteluita.", "", `👉 ${APP_URL}`].join("\n") };
+  }
+
+  const lines = ["🎬 Yön huippuhetket"];
+
+  games.forEach((game) => {
+    const highlight = findHighlightForGame(game, highlights);
+    const label = highlightGameLabel(game);
+    lines.push("");
+    if (highlight) {
+      lines.push(`▶️ <a href="${telegramHtml(highlight.url)}">${telegramHtml(label)}</a>`);
+    } else {
+      lines.push(`⚽ ${telegramHtml(label)}`);
+      lines.push("Tästä pelistä ei vielä ole huippuhetkiä saatavilla");
+    }
+  });
+
+  lines.push("");
+  lines.push(`👉 ${APP_URL}`);
+  return { text: lines.join("\n"), parseMode: "HTML" };
 }
 
 function nightGamesMessage(games) {
@@ -1080,23 +1237,32 @@ async function commandMessage(command, env) {
     return standingsMessage(standings(players, games));
   }
 
+  if (command === "/huippuhetket") {
+    const { games: completedGames } = highlightNightGames(games, new Date());
+    const highlights = completedGames.length ? await fetchYleHighlightItems() : [];
+    return huippuhetketMessage(completedGames, highlights);
+  }
+
   return [
     "En tunnistanut komentoa.",
     "",
     "Käytössä olevat komennot:",
     "/vetotaulukko",
     "/veikkaa",
+    "/huippuhetket",
   ].join("\n");
 }
 
 async function sendTelegramMessage(env, chatId, text) {
   const token = requireEnv(env, "TELEGRAM_BOT_TOKEN");
+  const message = typeof text === "object" && text ? text : { text };
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
-      text,
+      text: message.text,
+      ...(message.parseMode ? { parse_mode: message.parseMode } : {}),
       disable_web_page_preview: true,
     }),
   });
@@ -1277,6 +1443,23 @@ export default {
         const message = completedGames.length
           ? nightSummaryMessage(completedGames, players, games)
           : "Tälle yölle ei löytynyt pelattuja pelejä.";
+        if (!dryRun) {
+          await sendTelegramMessage(env, requireEnv(env, "TELEGRAM_CHAT_ID"), message);
+        }
+        return jsonResponse({ dryRun, round: window.id, games: completedGames.length, message });
+      }
+
+      if (request.method === "GET" && url.pathname === "/telegram/test-huippuhetket") {
+        const expectedSecret = requireEnv(env, "TELEGRAM_WEBHOOK_SECRET");
+        if (url.searchParams.get("secret") !== expectedSecret) {
+          return textResponse("Unauthorized", { status: 401 });
+        }
+        const dryRun = url.searchParams.get("dryRun") !== "0";
+        const now = new Date(url.searchParams.get("now") || Date.now());
+        const games = await fetchGamesEnriched();
+        const { games: completedGames, window } = highlightNightGames(games, now);
+        const highlights = completedGames.length ? await fetchYleHighlightItems() : [];
+        const message = huippuhetketMessage(completedGames, highlights);
         if (!dryRun) {
           await sendTelegramMessage(env, requireEnv(env, "TELEGRAM_CHAT_ID"), message);
         }
