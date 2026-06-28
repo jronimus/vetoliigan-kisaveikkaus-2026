@@ -30,6 +30,13 @@ const YLE_AREENA_APP_ID = "areena-web-items";
 const YLE_AREENA_APP_KEY = "wlTs5D9OjIdeS9krPzRQR4I1PYVzoazN";
 const YLE_HIGHLIGHTS_TOKEN =
   "eyJhbGciOiJIUzI1NiJ9.eyJjYXJkT3B0aW9uc1RlbXBsYXRlIjoiZXZlbnQiLCJzb3VyY2UiOiJodHRwczovL3Byb2dyYW1zLmFwaS55bGUuZmkvdjMvc2NoZW1hL3YzL3B1YmxpY2F0aW9ucy9sYXRlc3Q_Y29uY2VwdD0xOC0yNTYxMDE6aXNSZWxhdGVkRXZlbnRPZjsxOC0zMTA0MDQ6aXNBcmVlbmFFZGl0b3JpYWxUYWdPZiZwcm9ncmFtX3R5cGU9dHZjbGlwJnB1YmxpY2F0aW9uX3R5cGU9b25kZW1hbmQiLCJhbmFseXRpY3MiOnsiY29udGV4dCI6eyJ5bGUiOnsic291cmNlX3JlZiI6InR2LnZpZXcuNTcteDc1ZUU4Um1QLmZpZmFfamFsa2FwYWxsb25fbW1fMjAyNi5sYWhldHlrc2V0Lmh1aXBwdWhldGtldCJ9fX19.jkyooTvhfGVnYUAYAHVNnIQm8GaS4OX4Lb5wgGtDU28";
+const YLE_RECAP_TOKEN =
+  "eyJhbGciOiJIUzI1NiJ9.eyJjYXJkT3B0aW9uc1RlbXBsYXRlIjoidG9wUGlja3MiLCJzb3VyY2UiOiJodHRwczovL3Byb2dyYW1zLmFwaS55bGUuZmkvdjMvc2NoZW1hL3YzL3BhY2thZ2VzLzMwLTUyNDYvbGF0ZXN0IiwiYW5hbHl0aWNzIjp7ImNvbnRleHQiOnsieWxlIjp7InNvdXJjZV9yZWYiOiJ0di52aWV3LjU3LXg3NWVFOFJtUC5maWZhX2phbGthcGFsbG9uX21tXzIwMjYubGFoZXR5a3NldC5rb29zdGVldCIsImFyZWVuYV9wYWNrYWdlX2lkIjoiMzAtNTI0NiJ9fX19.FN1jNUVkMlEkD0GJl7CGI2P9vtQ2YilPaINmWNyU4g0";
+const MTV_GRAPHQL_URL = "https://nordic-gateway.mtv.a2d.tv/graphql";
+const MTV_FIFA_PAGE_ID = "fifa-2026";
+const MTV_COMPILATIONS_PANEL_TITLE = "MM-futiksen ottelukoosteet";
+const MTV_COMPILATIONS_FALLBACK_PANEL_ID = "745Quf6Do0d45DYfQ9mBmf";
+const MTV_CLIENT_VERSION = "5.5.0";
 const CACHE_SECONDS = {
   games: 20,
   groups: 60,
@@ -517,6 +524,24 @@ function yleTeamName(game, side) {
   return YLE_TEAM_FI[raw] || teamName(game, side);
 }
 
+const TEAM_MEDIA_ALIASES = {
+  "Democratic Republic of the Congo": ["DR Kongo", "Kongo", "Kongo DR", "Kongon demokraattinen tasavalta", "Congo DR"],
+  Colombia: ["Kolumbia", "Colombia"],
+  "Czech Republic": ["Tsekki", "Tšekki"],
+  Curacao: ["Curacao", "Curaçao"],
+  "Curaçao": ["Curacao", "Curaçao"],
+  "Ivory Coast": ["Norsunluurannikko", "Côte d'Ivoire"],
+  "South Korea": ["Etelä-Korea", "Korea Republic"],
+  "United States": ["Yhdysvallat", "USA"],
+};
+
+function teamSearchNames(game, side) {
+  const key = side === "home" ? "home_team_name_en" : "away_team_name_en";
+  const labelKey = side === "home" ? "home_team_label" : "away_team_label";
+  const raw = game[key] || game[labelKey] || "";
+  return Array.from(new Set([raw, teamName(game, side), yleTeamName(game, side), ...(TEAM_MEDIA_ALIASES[raw] || [])].filter(Boolean)));
+}
+
 const TEAM_EMOJIS = {
   Algeria: "🇩🇿",
   Argentina: "🇦🇷",
@@ -729,12 +754,18 @@ function highlightMatchKey(home, away) {
 }
 
 function highlightKeysForGame(game) {
-  const home = yleTeamName(game, "home");
-  const away = yleTeamName(game, "away");
-  return new Set([
-    highlightMatchKey(home, away),
-    highlightMatchKey(away, home),
-  ]);
+  const homeNames = teamSearchNames(game, "home");
+  const awayNames = teamSearchNames(game, "away");
+  const keys = new Set();
+
+  homeNames.forEach((home) => {
+    awayNames.forEach((away) => {
+      keys.add(highlightMatchKey(home, away));
+      keys.add(highlightMatchKey(away, home));
+    });
+  });
+
+  return keys;
 }
 
 function areenaItemUrl(item) {
@@ -743,66 +774,196 @@ function areenaItemUrl(item) {
   return itemId ? `https://areena.yle.fi/${itemId}` : undefined;
 }
 
-function areenaHighlightKey(item) {
-  const title = normalizeHighlightText(item?.title);
-  const withoutPrefix = title.replace(/^huippuhetket:\s*/, "");
-  return withoutPrefix;
+function mediaItemType(title) {
+  const normalized = normalizeHighlightText(title);
+  if (normalized.startsWith("huippuhetket:")) return "yleHighlights";
+  if (normalized.startsWith("kooste:")) return "yleRecap";
+  if (normalized.endsWith(" kooste") && !normalized.includes("paivan otteluista")) return "yleRecap";
+  if (normalized.startsWith("ottelukooste:")) return "mtvMatchRecap";
+  if (normalized.startsWith("maalikooste:")) return "mtvGoalRecap";
+  return undefined;
 }
 
-async function fetchYleHighlightItems() {
+function mediaItemKey(title) {
+  return normalizeHighlightText(title)
+    .replace(/^fifa jalkapallon mm 2026\s+/, "")
+    .replace(/^(huippuhetket|kooste|ottelukooste|maalikooste):\s*/, "")
+    .replace(/\s+kooste$/, "");
+}
+
+async function fetchYleMediaItems() {
   const items = [];
-  let offset = 0;
-  let total = Infinity;
+  const tokens = [YLE_HIGHLIGHTS_TOKEN, YLE_RECAP_TOKEN];
 
-  while (offset < total && offset < 100) {
-    const url = new URL("https://areena.api.yle.fi/v1/ui/content/list");
-    url.searchParams.set("client", "yle-areena-web");
-    url.searchParams.set("language", "fi");
-    url.searchParams.set("v", "10");
-    url.searchParams.set("crop", "30");
-    url.searchParams.set("token", YLE_HIGHLIGHTS_TOKEN);
-    url.searchParams.set("app_id", YLE_AREENA_APP_ID);
-    url.searchParams.set("app_key", YLE_AREENA_APP_KEY);
-    url.searchParams.set("offset", String(offset));
-    url.searchParams.set("limit", "25");
+  for (const token of tokens) {
+    let offset = 0;
+    let total = Infinity;
 
-    const response = await fetch(url, {
-      headers: {
-        accept: "application/json",
-        "user-agent": "Mozilla/5.0",
-      },
-      cf: { cacheTtl: 180, cacheEverything: true },
-    });
+    while (offset < total && offset < 100) {
+      const url = new URL("https://areena.api.yle.fi/v1/ui/content/list");
+      url.searchParams.set("client", "yle-areena-web");
+      url.searchParams.set("language", "fi");
+      url.searchParams.set("v", "10");
+      url.searchParams.set("crop", "30");
+      url.searchParams.set("token", token);
+      url.searchParams.set("app_id", YLE_AREENA_APP_ID);
+      url.searchParams.set("app_key", YLE_AREENA_APP_KEY);
+      url.searchParams.set("offset", String(offset));
+      url.searchParams.set("limit", "25");
 
-    if (!response.ok) {
-      throw new Error(`Yle Areena huippuhetket failed: ${response.status}`);
+      const response = await fetch(url, {
+        headers: {
+          accept: "application/json",
+          "user-agent": "Mozilla/5.0",
+        },
+        cf: { cacheTtl: 180, cacheEverything: true },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Yle Areena media failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const batch = Array.isArray(data.data) ? data.data : [];
+      total = Number(data.meta?.count) || batch.length;
+      items.push(
+        ...batch
+          .map((item) => ({
+            title: item.title,
+            description: item.description,
+            url: areenaItemUrl(item),
+            type: mediaItemType(item?.title),
+            key: mediaItemKey(item?.title),
+            source: "YLE",
+          }))
+          .filter((item) => item.url && item.type),
+      );
+
+      if (!batch.length) break;
+      offset += batch.length;
     }
-
-    const data = await response.json();
-    const batch = Array.isArray(data.data) ? data.data : [];
-    total = Number(data.meta?.count) || batch.length;
-    items.push(
-      ...batch
-        .filter((item) => normalizeHighlightText(item?.title).startsWith("huippuhetket:"))
-        .map((item) => ({
-          title: item.title,
-          description: item.description,
-          url: areenaItemUrl(item),
-          key: areenaHighlightKey(item),
-        }))
-        .filter((item) => item.url),
-    );
-
-    if (!batch.length) break;
-    offset += batch.length;
   }
 
   return items;
 }
 
-function findHighlightForGame(game, highlights) {
+async function mtvGraphql(query, variables) {
+  const response = await fetch(MTV_GRAPHQL_URL, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json",
+      origin: "https://www.mtv.fi",
+      referer: "https://www.mtv.fi/ohjelmat/fifa-2026",
+      "client-name": "mtv",
+      "client-version": MTV_CLIENT_VERSION,
+      "session-id": crypto.randomUUID(),
+      "feature-toggle-include-collection-panel": "true",
+      "feature-toggle-mixed-panel": "true",
+      "feature-toggle-include-shorts-in-single-panel": "true",
+      "feature-toggle-include-multi-single-panel": "true",
+    },
+    body: JSON.stringify({ query, variables }),
+    cf: { cacheTtl: 180, cacheEverything: true },
+  });
+
+  if (!response.ok) {
+    throw new Error(`MTV GraphQL failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (data.errors?.length) {
+    throw new Error(`MTV GraphQL errors: ${data.errors.map((error) => error.message).join(", ")}`);
+  }
+  return data.data;
+}
+
+async function fetchMtvCompilationPanelId() {
+  const query = `
+    query Page($pageId: ID!, $input: PageContentInput!) {
+      page(id: $pageId) {
+        content(input: $input) {
+          panels {
+            __typename
+            ... on ClipsPanel { id title }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await mtvGraphql(query, { pageId: MTV_FIFA_PAGE_ID, input: { offset: 0, limit: 30 } });
+    const panels = data?.page?.content?.panels || [];
+    return panels.find((panel) => panel?.title === MTV_COMPILATIONS_PANEL_TITLE)?.id || MTV_COMPILATIONS_FALLBACK_PANEL_ID;
+  } catch {
+    return MTV_COMPILATIONS_FALLBACK_PANEL_ID;
+  }
+}
+
+function mtvClipUrl(clip) {
+  return clip?.id && clip?.slug ? `https://www.mtv.fi/lyhyet/${clip.id}/${clip.slug}` : undefined;
+}
+
+async function fetchMtvMediaItems() {
+  const panelId = await fetchMtvCompilationPanelId();
+  const query = `
+    query Panel($panelId: ID!, $input: ClipsPanelContentInput!) {
+      panel(id: $panelId) {
+        __typename
+        ... on ClipsPanel {
+          content(input: $input) {
+            pageInfo { hasNextPage nextPageOffset }
+            cards {
+              content {
+                __typename
+                ... on Clip { id title slug }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const items = [];
+  let offset = 0;
+  let hasNextPage = true;
+
+  while (hasNextPage && offset < 120) {
+    const data = await mtvGraphql(query, { panelId, input: { offset, limit: 30 } });
+    const content = data?.panel?.content;
+    const cards = Array.isArray(content?.cards) ? content.cards : [];
+
+    items.push(
+      ...cards
+        .map((card) => card?.content)
+        .map((clip) => ({
+          title: clip?.title,
+          url: mtvClipUrl(clip),
+          type: mediaItemType(clip?.title),
+          key: mediaItemKey(clip?.title),
+          source: "MTV",
+        }))
+        .filter((item) => item.url && item.type),
+    );
+
+    hasNextPage = Boolean(content?.pageInfo?.hasNextPage);
+    offset = Number(content?.pageInfo?.nextPageOffset);
+    if (!Number.isFinite(offset)) break;
+  }
+
+  return items;
+}
+
+function findMediaForGame(game, mediaItems, type) {
   const keys = highlightKeysForGame(game);
-  return highlights.find((item) => keys.has(item.key));
+  return mediaItems.find((item) => item.type === type && keys.has(item.key));
+}
+
+async function fetchKoosteMediaItems() {
+  const results = await Promise.allSettled([fetchYleMediaItems(), fetchMtvMediaItems()]);
+  return results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
 }
 
 function telegramHtml(value) {
@@ -818,22 +979,32 @@ function highlightGameLabel(game) {
   return `${teamEmoji(game, "home")} ${teamName(game, "home")} ${score} ${teamName(game, "away")} ${teamEmoji(game, "away")}`;
 }
 
-function huippuhetketMessage(games, highlights) {
+function mediaLink(label, item) {
+  return `<a href="${telegramHtml(item.url)}">${telegramHtml(label)}</a>`;
+}
+
+function koosteetMessage(games, mediaItems) {
   if (!games.length) {
-    return { text: ["🎬 Yön huippuhetket", "", "Tälle yölle ei löytynyt pelattuja otteluita.", "", `👉 ${APP_URL}`].join("\n") };
+    return { text: ["🎬 Yön koosteet", "", "Tälle yölle ei löytynyt pelattuja otteluita.", "", `👉 ${APP_URL}`].join("\n") };
   }
 
-  const lines = ["🎬 Yön huippuhetket"];
+  const lines = ["🎬 Yön koosteet"];
 
   games.forEach((game) => {
-    const highlight = findHighlightForGame(game, highlights);
     const label = highlightGameLabel(game);
+    const links = [
+      ["Huippuhetket | YLE", findMediaForGame(game, mediaItems, "yleHighlights")],
+      ["Kooste | YLE", findMediaForGame(game, mediaItems, "yleRecap")],
+      ["Ottelukooste | MTV", findMediaForGame(game, mediaItems, "mtvMatchRecap")],
+      ["Maalikooste | MTV", findMediaForGame(game, mediaItems, "mtvGoalRecap")],
+    ].filter(([, item]) => item);
+
     lines.push("");
-    if (highlight) {
-      lines.push(`▶️ <a href="${telegramHtml(highlight.url)}">${telegramHtml(label)}</a>`);
+    lines.push(`⚽ ${telegramHtml(label)}`);
+    if (links.length) {
+      lines.push(links.map(([linkLabel, item]) => mediaLink(linkLabel, item)).join(" | "));
     } else {
-      lines.push(`⚽ ${telegramHtml(label)}`);
-      lines.push("Tästä pelistä ei vielä ole huippuhetkiä saatavilla");
+      lines.push("Tästä pelistä ei vielä ole koosteita saatavilla");
     }
   });
 
@@ -1237,10 +1408,10 @@ async function commandMessage(command, env) {
     return standingsMessage(standings(players, games));
   }
 
-  if (command === "/huippuhetket") {
+  if (command === "/koosteet") {
     const { games: completedGames } = highlightNightGames(games, new Date());
-    const highlights = completedGames.length ? await fetchYleHighlightItems() : [];
-    return huippuhetketMessage(completedGames, highlights);
+    const mediaItems = completedGames.length ? await fetchKoosteMediaItems() : [];
+    return koosteetMessage(completedGames, mediaItems);
   }
 
   return [
@@ -1249,7 +1420,7 @@ async function commandMessage(command, env) {
     "Käytössä olevat komennot:",
     "/vetotaulukko",
     "/veikkaa",
-    "/huippuhetket",
+    "/koosteet",
   ].join("\n");
 }
 
@@ -1449,7 +1620,7 @@ export default {
         return jsonResponse({ dryRun, round: window.id, games: completedGames.length, message });
       }
 
-      if (request.method === "GET" && url.pathname === "/telegram/test-huippuhetket") {
+      if (request.method === "GET" && (url.pathname === "/telegram/test-koosteet" || url.pathname === "/telegram/test-huippuhetket")) {
         const expectedSecret = requireEnv(env, "TELEGRAM_WEBHOOK_SECRET");
         if (url.searchParams.get("secret") !== expectedSecret) {
           return textResponse("Unauthorized", { status: 401 });
@@ -1458,8 +1629,8 @@ export default {
         const now = new Date(url.searchParams.get("now") || Date.now());
         const games = await fetchGamesEnriched();
         const { games: completedGames, window } = highlightNightGames(games, now);
-        const highlights = completedGames.length ? await fetchYleHighlightItems() : [];
-        const message = huippuhetketMessage(completedGames, highlights);
+        const mediaItems = completedGames.length ? await fetchKoosteMediaItems() : [];
+        const message = koosteetMessage(completedGames, mediaItems);
         if (!dryRun) {
           await sendTelegramMessage(env, requireEnv(env, "TELEGRAM_CHAT_ID"), message);
         }
